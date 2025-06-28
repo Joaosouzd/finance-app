@@ -12,12 +12,14 @@ export interface Transaction {
 export interface Deadline {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   amount: number;
   dueDate: string;
   status: 'pending' | 'paid' | 'overdue';
   category: string;
+  type: 'income' | 'expense';
   createdAt: string;
+  transactionId?: string;
 }
 
 export interface Category {

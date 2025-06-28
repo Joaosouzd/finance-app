@@ -77,18 +77,8 @@ export const TransactionForm = ({
     const selectedDate = e.target.value;
     setFormData({ ...formData, date: selectedDate });
     
-    // Se a data selecionada for futura e não tiver prazo definido, sugerir prazo
-    const today = new Date().toISOString().split('T')[0];
-    if (selectedDate > today && !formData.hasDueDate) {
-      const dueDate = new Date(selectedDate + 'T00:00:00');
-      dueDate.setDate(dueDate.getDate() + 30); // Sugerir 30 dias
-      setFormData(prev => ({
-        ...prev,
-        date: selectedDate,
-        dueDate: dueDate.toISOString().split('T')[0],
-        hasDueDate: true
-      }));
-    }
+    // Removendo a ativação automática do prazo de vencimento
+    // Agora o usuário precisa marcar manualmente se quiser definir um prazo
   };
 
   const filteredCategories = categories.filter(cat => cat.type === formData.type);
@@ -211,7 +201,21 @@ export const TransactionForm = ({
                 type="checkbox"
                 id="hasDueDate"
                 checked={formData.hasDueDate}
-                onChange={(e) => setFormData({ ...formData, hasDueDate: e.target.checked })}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  if (checked && !formData.dueDate) {
+                    // Sugerir data de vencimento quando marcar o checkbox
+                    const suggestedDate = new Date(formData.date + 'T00:00:00');
+                    suggestedDate.setDate(suggestedDate.getDate() + 30); // 30 dias depois
+                    setFormData({
+                      ...formData,
+                      hasDueDate: checked,
+                      dueDate: suggestedDate.toISOString().split('T')[0]
+                    });
+                  } else {
+                    setFormData({ ...formData, hasDueDate: checked });
+                  }
+                }}
                 className="rounded"
               />
               <label htmlFor="hasDueDate" className="text-sm font-medium text-gray-700 flex items-center">

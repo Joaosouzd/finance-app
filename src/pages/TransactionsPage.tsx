@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Edit, Trash2, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { Transaction, Category } from '../types';
 import { TransactionForm } from '../components/TransactionForm';
 import { formatCurrency, formatDate, getCategoryColor } from '../utils/helpers';
@@ -12,6 +12,7 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
 
   const handleAddTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
     finance.addTransaction(transaction);
@@ -31,15 +32,47 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
     }
   };
 
+  // Obter meses únicos das transações
+  const getUniqueMonths = () => {
+    const months = new Set<string>();
+    finance.transactions.forEach((t: Transaction) => {
+      const date = new Date(t.date + 'T00:00:00');
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.add(monthKey);
+    });
+    
+    return Array.from(months)
+      .sort()
+      .reverse()
+      .map(month => ({
+        value: month,
+        label: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { 
+          month: 'long', 
+          year: 'numeric' 
+        })
+      }));
+  };
+
   const filteredTransactions = finance.transactions.filter((t: Transaction) => {
-    if (filter === 'all') return true;
-    return t.type === filter;
+    // Filtro por tipo
+    if (filter !== 'all' && t.type !== filter) return false;
+    
+    // Filtro por mês
+    if (selectedMonth) {
+      const transactionDate = new Date(t.date + 'T00:00:00');
+      const transactionMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+      if (transactionMonth !== selectedMonth) return false;
+    }
+    
+    return true;
   });
 
   const getCategoryName = (categoryId: string) => {
     const category = finance.categories.find((c: Category) => c.id === categoryId);
     return category?.name || 'Sem categoria';
   };
+
+  const months = getUniqueMonths();
 
   return (
     <div className="space-y-6">
@@ -59,46 +92,141 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
       </div>
 
       {/* Filters */}
-      <div className="flex space-x-4">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg font-medium ${
-            filter === 'all'
-              ? 'bg-primary-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Todas
-        </button>
-        <button
-          onClick={() => setFilter('income')}
-          className={`px-4 py-2 rounded-lg font-medium flex items-center ${
-            filter === 'income'
-              ? 'bg-success-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <TrendingUp className="h-4 w-4 mr-2" />
-          Receitas
-        </button>
-        <button
-          onClick={() => setFilter('expense')}
-          className={`px-4 py-2 rounded-lg font-medium flex items-center ${
-            filter === 'expense'
-              ? 'bg-danger-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <TrendingDown className="h-4 w-4 mr-2" />
-          Despesas
-        </button>
+      <div className="space-y-4">
+        {/* Month Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Filtrar por Mês
+          </label>
+          <div className="flex space-x-2">
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="input max-w-xs"
+            >
+              <option value="">Todos os meses</option>
+              {months.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+            {selectedMonth && (
+              <button
+                onClick={() => setSelectedMonth('')}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Type Filters */}
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              filter === 'all'
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Todas
+          </button>
+          <button
+            onClick={() => setFilter('income')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center ${
+              filter === 'income'
+                ? 'bg-success-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Receitas
+          </button>
+          <button
+            onClick={() => setFilter('expense')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center ${
+              filter === 'expense'
+                ? 'bg-danger-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <TrendingDown className="h-4 w-4 mr-2" />
+            Despesas
+          </button>
+        </div>
       </div>
+
+      {/* Summary for selected month */}
+      {selectedMonth && (
+        <div className="card bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900">
+                Resumo do Mês: {months.find(m => m.value === selectedMonth)?.label}
+              </h3>
+              <div className="flex space-x-6 mt-2">
+                <div>
+                  <span className="text-sm text-blue-700">Receitas: </span>
+                  <span className="font-semibold text-green-600">
+                    {formatCurrency(
+                      filteredTransactions
+                        .filter((t: Transaction) => t.type === 'income')
+                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sm text-blue-700">Despesas: </span>
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(
+                      filteredTransactions
+                        .filter((t: Transaction) => t.type === 'expense')
+                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sm text-blue-700">Saldo: </span>
+                  <span className={`font-semibold ${
+                    filteredTransactions
+                      .filter((t: Transaction) => t.type === 'income')
+                      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) -
+                    filteredTransactions
+                      .filter((t: Transaction) => t.type === 'expense')
+                      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) >= 0
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                  }`}>
+                    {formatCurrency(
+                      filteredTransactions
+                        .filter((t: Transaction) => t.type === 'income')
+                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0) -
+                      filteredTransactions
+                        .filter((t: Transaction) => t.type === 'expense')
+                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Calendar className="h-8 w-8 text-blue-500" />
+          </div>
+        </div>
+      )}
 
       {/* Transactions List */}
       <div className="card">
         {filteredTransactions.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500">Nenhuma transação encontrada.</p>
+            <p className="text-gray-500">
+              {selectedMonth 
+                ? `Nenhuma transação encontrada para ${months.find(m => m.value === selectedMonth)?.label}.`
+                : 'Nenhuma transação encontrada.'
+              }
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

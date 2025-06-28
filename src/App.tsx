@@ -21,7 +21,8 @@ function App() {
             element={
               <Dashboard 
                 summary={finance.summary} 
-                monthlyData={monthlyData} 
+                monthlyData={finance.monthlyData}
+                transactions={finance.transactions}
               />
             } 
           />
