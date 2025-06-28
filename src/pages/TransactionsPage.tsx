@@ -108,6 +108,7 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Data</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Descrição</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Categoria</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Vencimento</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-700">Valor</th>
                   <th className="text-center py-3 px-4 font-medium text-gray-700">Ações</th>
                 </tr>
@@ -140,6 +141,19 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
                       >
                         {getCategoryName(transaction.category)}
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {transaction.dueDate ? (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          new Date(transaction.dueDate + 'T00:00:00') < new Date() 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {formatDate(transaction.dueDate)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span

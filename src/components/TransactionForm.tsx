@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Calendar } from 'lucide-react';
 import { Transaction, Category } from '../types';
 
 interface TransactionFormProps {
@@ -21,6 +21,8 @@ export const TransactionForm = ({
     type: 'expense' as 'income' | 'expense',
     category: '',
     date: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    hasDueDate: false,
   });
 
   useEffect(() => {
@@ -31,6 +33,8 @@ export const TransactionForm = ({
         type: transaction.type,
         category: transaction.category,
         date: transaction.date,
+        dueDate: '',
+        hasDueDate: false,
       });
     }
   }, [transaction]);
@@ -43,12 +47,18 @@ export const TransactionForm = ({
       return;
     }
 
+    if (formData.hasDueDate && !formData.dueDate) {
+      alert('Por favor, selecione uma data de vencimento.');
+      return;
+    }
+
     onSubmit({
       description: formData.description,
       amount: parseFloat(formData.amount),
       type: formData.type,
       category: formData.category,
       date: formData.date,
+      dueDate: formData.hasDueDate ? formData.dueDate : undefined,
     });
 
     // Reset form
@@ -58,14 +68,34 @@ export const TransactionForm = ({
       type: 'expense',
       category: '',
       date: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      hasDueDate: false,
     });
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = e.target.value;
+    setFormData({ ...formData, date: selectedDate });
+    
+    // Se a data selecionada for futura e não tiver prazo definido, sugerir prazo
+    const today = new Date().toISOString().split('T')[0];
+    if (selectedDate > today && !formData.hasDueDate) {
+      const dueDate = new Date(selectedDate + 'T00:00:00');
+      dueDate.setDate(dueDate.getDate() + 30); // Sugerir 30 dias
+      setFormData(prev => ({
+        ...prev,
+        date: selectedDate,
+        dueDate: dueDate.toISOString().split('T')[0],
+        hasDueDate: true
+      }));
+    }
   };
 
   const filteredCategories = categories.filter(cat => cat.type === formData.type);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
             {transaction ? 'Editar Transação' : 'Nova Transação'}
@@ -163,15 +193,51 @@ export const TransactionForm = ({
           {/* Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Data
+              Data da Transação *
             </label>
             <input
               type="date"
               value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              onChange={handleDateChange}
               className="input"
               required
             />
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <div className="flex items-center space-x-2 mb-2">
+              <input
+                type="checkbox"
+                id="hasDueDate"
+                checked={formData.hasDueDate}
+                onChange={(e) => setFormData({ ...formData, hasDueDate: e.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="hasDueDate" className="text-sm font-medium text-gray-700 flex items-center">
+                <Calendar className="h-4 w-4 mr-1" />
+                Definir prazo de vencimento
+              </label>
+            </div>
+            
+            {formData.hasDueDate && (
+              <div className="ml-6">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Data de Vencimento
+                </label>
+                <input
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  className="input"
+                  min={formData.date}
+                  required={formData.hasDueDate}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Selecione uma data futura para o vencimento
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Buttons */}

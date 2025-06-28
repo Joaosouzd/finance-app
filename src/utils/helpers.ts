@@ -8,7 +8,7 @@ export const formatCurrency = (value: number): string => {
 };
 
 export const formatDate = (date: string): string => {
-  const dateObj = new Date(date);
+  const dateObj = new Date(date + 'T00:00:00');
   return dateObj.toLocaleDateString('pt-BR');
 };
 
@@ -36,11 +36,11 @@ export const calculateFinancialSummary = (transactions: Transaction[], deadlines
   today.setHours(0, 0, 0, 0);
   
   const pendingDeadlines = deadlines.filter(d => 
-    d.status === 'pending' && new Date(d.dueDate) > today
+    d.status === 'pending' && new Date(d.dueDate + 'T00:00:00') > today
   ).length;
 
   const overdueDeadlines = deadlines.filter(d => 
-    d.status === 'pending' && new Date(d.dueDate) < today
+    d.status === 'pending' && new Date(d.dueDate + 'T00:00:00') < today
   ).length;
 
   return {
@@ -56,7 +56,7 @@ export const getMonthlyData = (transactions: Transaction[]): MonthlyData[] => {
   const monthlyMap = new Map<string, { income: number; expenses: number }>();
 
   transactions.forEach(transaction => {
-    const date = new Date(transaction.date);
+    const date = new Date(transaction.date + 'T00:00:00');
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     
     if (!monthlyMap.has(monthKey)) {
@@ -74,14 +74,14 @@ export const getMonthlyData = (transactions: Transaction[]): MonthlyData[] => {
 
   return Array.from(monthlyMap.entries())
     .map(([month, data]) => ({
-      month: new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+      month: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
       income: data.income,
       expenses: data.expenses,
       balance: data.income - data.expenses
     }))
     .sort((a, b) => {
-      const dateA = new Date(a.month.split('/').reverse().join('-'));
-      const dateB = new Date(b.month.split('/').reverse().join('-'));
+      const dateA = new Date(a.month.split('/').reverse().join('-') + 'T00:00:00');
+      const dateB = new Date(b.month.split('/').reverse().join('-') + 'T00:00:00');
       return dateA.getTime() - dateB.getTime();
     });
 };
@@ -92,10 +92,10 @@ export const getDeadlinesByStatus = (deadlines: Deadline[]) => {
   
   return {
     pending: deadlines.filter(d => 
-      d.status === 'pending' && new Date(d.dueDate) > today
+      d.status === 'pending' && new Date(d.dueDate + 'T00:00:00') > today
     ),
     overdue: deadlines.filter(d => 
-      d.status === 'pending' && new Date(d.dueDate) < today
+      d.status === 'pending' && new Date(d.dueDate + 'T00:00:00') < today
     ),
     paid: deadlines.filter(d => d.status === 'paid'),
   };
