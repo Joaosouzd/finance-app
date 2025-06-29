@@ -15,9 +15,18 @@ export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+
+  // Nomes dos meses
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  // Obter anos e meses disponíveis
+  const availableYears = finance.getAvailableYears();
+  const availableMonths = finance.getAvailableMonths();
 
   const handleAddTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
     finance.addTransaction(transaction);
@@ -44,38 +53,20 @@ export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
     }
   };
 
-  // Obter meses únicos das transações
-  const getUniqueMonths = () => {
-    const months = new Set<string>();
-    finance.transactions.forEach((t: Transaction) => {
-      const date = new Date(t.date + 'T00:00:00');
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.add(monthKey);
-    });
-    
-    return Array.from(months)
-      .sort()
-      .reverse()
-      .map(month => ({
-        value: month,
-        label: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { 
-          month: 'long', 
-          year: 'numeric' 
-        })
-      }));
+  // Funções para navegar entre anos e meses
+  const handleYearChange = (year: number) => {
+    finance.setSelectedYear(year);
+    // Resetar mês quando mudar o ano
+    finance.setSelectedMonth(null);
   };
 
-  const filteredTransactions = finance.transactions.filter((t: Transaction) => {
+  const handleMonthChange = (month: number) => {
+    finance.setSelectedMonth(month);
+  };
+
+  const filteredTransactions = finance.filteredTransactions().filter((t: Transaction) => {
     // Filtro por tipo
     if (filter !== 'all' && t.type !== filter) return false;
-    
-    // Filtro por mês
-    if (selectedMonth) {
-      const transactionDate = new Date(t.date + 'T00:00:00');
-      const transactionMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
-      if (transactionMonth !== selectedMonth) return false;
-    }
-    
     return true;
   });
 
@@ -93,8 +84,6 @@ export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
     const expenseType = finance.expenseTypes.find((et: any) => et.id === expenseTypeId);
     return expenseType?.color || '#6b7280';
   };
-
-  const months = getUniqueMonths();
 
   return (
     <div className="space-y-6">
@@ -115,32 +104,60 @@ export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
 
       {/* Filters */}
       <div className="space-y-4">
-        {/* Month Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Filtrar por Mês
-          </label>
-          <div className="flex space-x-2">
+        {/* Year and Month Filters */}
+        <div className="flex items-center space-x-3">
+          {/* Year Filter */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Filtre por ano:
+            </label>
             <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              value={finance.selectedYear || ''}
+              onChange={(e) => handleYearChange(Number(e.target.value))}
               className="input max-w-xs"
             >
-              <option value="">Todos os meses</option>
-              {months.map((month) => (
-                <option key={month.value} value={month.value}>
-                  {month.label}
+              <option value="">Todos os anos</option>
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
                 </option>
               ))}
             </select>
-            {selectedMonth && (
-              <button
-                onClick={() => setSelectedMonth('')}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-              >
-                Limpar
-              </button>
-            )}
+          </div>
+
+          {/* Month Filter - Always visible */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Mês:
+            </label>
+            <select
+              value={finance.selectedMonth !== null ? finance.selectedMonth : ''}
+              onChange={(e) => handleMonthChange(Number(e.target.value))}
+              className="input max-w-xs"
+            >
+              <option value="">Todos os meses</option>
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {monthNames[month]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Clear Filters - Always visible */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              &nbsp;
+            </label>
+            <button
+              onClick={() => {
+                finance.setSelectedYear(null);
+                finance.setSelectedMonth(null);
+              }}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md bg-white"
+            >
+              Limpar
+            </button>
           </div>
         </div>
 
@@ -181,60 +198,37 @@ export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
         </div>
       </div>
 
-      {/* Summary for selected month */}
-      {selectedMonth && (
+      {/* Selected Period Info */}
+      {(finance.selectedYear || finance.selectedMonth !== null) && (
         <div className="card bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-blue-900">
-                Resumo do Mês: {months.find(m => m.value === selectedMonth)?.label}
+                Visualizando: {finance.selectedYear}
+                {finance.selectedMonth !== null && ` - ${monthNames[finance.selectedMonth]}`}
               </h3>
-              <div className="flex space-x-6 mt-2">
-                <div>
-                  <span className="text-sm text-blue-700">Receitas: </span>
-                  <span className="font-semibold text-green-600">
-                    {formatCurrency(
-                      filteredTransactions
-                        .filter((t: Transaction) => t.type === 'income')
-                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm text-blue-700">Despesas: </span>
-                  <span className="font-semibold text-red-600">
-                    {formatCurrency(
-                      filteredTransactions
-                        .filter((t: Transaction) => t.type === 'expense')
-                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm text-blue-700">Saldo: </span>
-                  <span className={`font-semibold ${
-                    filteredTransactions
-                      .filter((t: Transaction) => t.type === 'income')
-                      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) -
-                    filteredTransactions
-                      .filter((t: Transaction) => t.type === 'expense')
-                      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) >= 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}>
-                    {formatCurrency(
-                      filteredTransactions
-                        .filter((t: Transaction) => t.type === 'income')
-                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0) -
-                      filteredTransactions
-                        .filter((t: Transaction) => t.type === 'expense')
-                        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
-                    )}
-                  </span>
-                </div>
-              </div>
+              <p className="text-sm text-blue-700">
+                Dados filtrados para o período selecionado
+              </p>
             </div>
             <Calendar className="h-8 w-8 text-blue-500" />
+          </div>
+        </div>
+      )}
+
+      {/* All Data Info - Show when no filters are applied */}
+      {!finance.selectedYear && finance.selectedMonth === null && (
+        <div className="card bg-green-50 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-green-900">
+                Visualizando: Todos os dados
+              </h3>
+              <p className="text-sm text-green-700">
+                Dados de todas as transações sem filtros aplicados
+              </p>
+            </div>
+            <Calendar className="h-8 w-8 text-green-500" />
           </div>
         </div>
       )}
@@ -244,8 +238,8 @@ export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
         {filteredTransactions.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500">
-              {selectedMonth 
-                ? `Nenhuma transação encontrada para ${months.find(m => m.value === selectedMonth)?.label}.`
+              {finance.selectedYear && finance.selectedMonth !== null
+                ? `Nenhuma transação encontrada para ${monthNames[finance.selectedMonth]}.`
                 : 'Nenhuma transação encontrada.'
               }
             </p>

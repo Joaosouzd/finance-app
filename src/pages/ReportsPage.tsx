@@ -10,7 +10,6 @@ interface ReportsPageProps {
 
 export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
   const finance = useFinance();
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
 
   // Nomes dos meses
   const monthNames = [
@@ -18,100 +17,25 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
 
-  // Obter meses únicos das transações
-  const getUniqueMonths = () => {
-    const months = new Set<string>();
-    finance.transactions.forEach((t: any) => {
-      const date = new Date(t.date + 'T00:00:00');
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.add(monthKey);
-    });
-    
-    return Array.from(months)
-      .sort()
-      .reverse()
-      .map(month => ({
-        value: month,
-        label: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { 
-          month: 'long', 
-          year: 'numeric' 
-        })
-      }));
-  };
+  // Obter anos e meses disponíveis
+  const availableYears = finance.getAvailableYears();
+  const availableMonths = finance.getAvailableMonths();
 
   // Estatísticas do período selecionado
   const stats = finance.periodStats();
   const categoryStats = finance.categoryStats();
   const expenseTypeStats = finance.expenseTypeStats();
 
-  // Filtrar dados por mês selecionado
-  const getFilteredData = () => {
-    if (!selectedMonth) {
-      return {
-        stats,
-        categoryStats,
-        expenseTypeStats
-      };
-    }
-
-    const filteredTransactions = finance.transactions.filter((t: any) => {
-      const transactionDate = new Date(t.date + 'T00:00:00');
-      const transactionMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
-      return transactionMonth === selectedMonth;
-    });
-
-    // Calcular estatísticas filtradas
-    const filteredStats = {
-      income: filteredTransactions
-        .filter((t: any) => t.type === 'income')
-        .reduce((sum: number, t: any) => sum + t.amount, 0),
-      expenses: filteredTransactions
-        .filter((t: any) => t.type === 'expense')
-        .reduce((sum: number, t: any) => sum + t.amount, 0),
-      balance: 0,
-      transactionCount: filteredTransactions.length
-    };
-    filteredStats.balance = filteredStats.income - filteredStats.expenses;
-
-    // Calcular estatísticas por categoria filtradas
-    const categoryMap = new Map();
-    filteredTransactions
-      .filter((t: any) => t.type === 'expense')
-      .forEach((t: any) => {
-        const category = finance.categories.find((c: any) => c.id === t.category);
-        const categoryName = category?.name || 'Sem categoria';
-        categoryMap.set(categoryName, (categoryMap.get(categoryName) || 0) + t.amount);
-      });
-    
-    const filteredCategoryStats = Array.from(categoryMap.entries()).map(([name, amount]) => ({
-      name,
-      amount: amount as number
-    }));
-
-    // Calcular estatísticas por tipo de despesa filtradas
-    const expenseTypeMap = new Map();
-    filteredTransactions
-      .filter((t: any) => t.type === 'expense')
-      .forEach((t: any) => {
-        const expenseType = finance.expenseTypes.find((et: any) => et.id === t.expenseType);
-        const expenseTypeName = expenseType?.name || 'Normal';
-        expenseTypeMap.set(expenseTypeName, (expenseTypeMap.get(expenseTypeName) || 0) + t.amount);
-      });
-    
-    const filteredExpenseTypeStats = Array.from(expenseTypeMap.entries()).map(([name, amount]) => ({
-      name,
-      amount: amount as number
-    }));
-
-    return {
-      stats: filteredStats,
-      categoryStats: filteredCategoryStats,
-      expenseTypeStats: filteredExpenseTypeStats
-    };
+  // Funções para navegar entre anos e meses
+  const handleYearChange = (year: number) => {
+    finance.setSelectedYear(year);
+    // Resetar mês quando mudar o ano
+    finance.setSelectedMonth(null);
   };
 
-  const { stats: filteredStats, categoryStats: filteredCategoryStats, expenseTypeStats: filteredExpenseTypeStats } = getFilteredData();
-  const months = getUniqueMonths();
+  const handleMonthChange = (month: number) => {
+    finance.setSelectedMonth(month);
+  };
 
   return (
     <div className="space-y-6">
@@ -122,47 +46,95 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
           <p className="text-gray-600">Análise detalhada das suas finanças</p>
         </div>
         
-        {/* Month Filter */}
-        <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">
-            Filtrar por Mês:
-          </label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="input max-w-xs"
-          >
-            <option value="">Todos os meses</option>
-            {months.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-          {selectedMonth && (
+        {/* Year and Month Filters */}
+        <div className="flex items-center space-x-3">
+          {/* Year Filter */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Filtre por ano:
+            </label>
+            <select
+              value={finance.selectedYear || ''}
+              onChange={(e) => handleYearChange(Number(e.target.value))}
+              className="input max-w-xs"
+            >
+              <option value="">Todos os anos</option>
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Month Filter - Always visible */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Mês:
+            </label>
+            <select
+              value={finance.selectedMonth !== null ? finance.selectedMonth : ''}
+              onChange={(e) => handleMonthChange(Number(e.target.value))}
+              className="input max-w-xs"
+            >
+              <option value="">Todos os meses</option>
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {monthNames[month]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Clear Filters - Always visible */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              &nbsp;
+            </label>
             <button
-              onClick={() => setSelectedMonth('')}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+              onClick={() => {
+                finance.setSelectedYear(null);
+                finance.setSelectedMonth(null);
+              }}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md bg-white"
             >
               Limpar
             </button>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Selected Month Info */}
-      {selectedMonth && (
+      {/* Selected Period Info */}
+      {(finance.selectedYear || finance.selectedMonth !== null) && (
         <div className="card bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-blue-900">
-                Visualizando: {months.find(m => m.value === selectedMonth)?.label}
+                Visualizando: {finance.selectedYear}
+                {finance.selectedMonth !== null && ` - ${monthNames[finance.selectedMonth]}`}
               </h3>
               <p className="text-sm text-blue-700">
-                Dados filtrados para o mês selecionado
+                Dados filtrados para o período selecionado
               </p>
             </div>
             <Calendar className="h-8 w-8 text-blue-500" />
+          </div>
+        </div>
+      )}
+
+      {/* All Data Info - Show when no filters are applied */}
+      {!finance.selectedYear && finance.selectedMonth === null && (
+        <div className="card bg-green-50 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-green-900">
+                Visualizando: Todos os dados
+              </h3>
+              <p className="text-sm text-green-700">
+                Dados de todas as transações sem filtros aplicados
+              </p>
+            </div>
+            <Calendar className="h-8 w-8 text-green-500" />
           </div>
         </div>
       )}
@@ -177,7 +149,7 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
             <div className="ml-4 flex-1">
               <p className="text-sm font-medium text-gray-600">Receitas</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(filteredStats.income)}
+                {formatCurrency(stats.income)}
               </p>
             </div>
           </div>
@@ -191,7 +163,7 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
             <div className="ml-4 flex-1">
               <p className="text-sm font-medium text-gray-600">Despesas</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(filteredStats.expenses)}
+                {formatCurrency(stats.expenses)}
               </p>
             </div>
           </div>
@@ -199,19 +171,13 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
 
         <div className="card">
           <div className="flex items-center">
-            <div className={`flex-shrink-0 p-2 rounded-lg ${
-              filteredStats.balance >= 0 ? 'bg-success-50' : 'bg-danger-50'
-            }`}>
-              <BarChart3 className={`h-6 w-6 ${
-                filteredStats.balance >= 0 ? 'text-success-600' : 'text-danger-600'
-              }`} />
+            <div className={`flex-shrink-0 p-2 rounded-lg ${stats.balance >= 0 ? 'bg-success-50' : 'bg-danger-50'}`}>
+              <BarChart3 className={`h-6 w-6 ${stats.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`} />
             </div>
             <div className="ml-4 flex-1">
               <p className="text-sm font-medium text-gray-600">Saldo</p>
-              <p className={`text-2xl font-bold ${
-                filteredStats.balance >= 0 ? 'text-success-600' : 'text-danger-600'
-              }`}>
-                {formatCurrency(filteredStats.balance)}
+              <p className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                {formatCurrency(stats.balance)}
               </p>
             </div>
           </div>
@@ -225,7 +191,7 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
             <div className="ml-4 flex-1">
               <p className="text-sm font-medium text-gray-600">Transações</p>
               <p className="text-2xl font-bold text-gray-900">
-                {filteredStats.transactionCount}
+                {stats.transactionCount}
               </p>
             </div>
           </div>
@@ -237,11 +203,10 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Despesas por Categoria
-            {selectedMonth && ` - ${months.find(m => m.value === selectedMonth)?.label}`}
           </h3>
-          {filteredCategoryStats.length > 0 ? (
+          {categoryStats.length > 0 ? (
             <div className="space-y-3">
-              {filteredCategoryStats.map((item, index) => (
+              {categoryStats.map((item, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">{item.name}</span>
                   <span className="text-sm font-medium text-gray-900">
@@ -260,11 +225,10 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Despesas por Tipo
-            {selectedMonth && ` - ${months.find(m => m.value === selectedMonth)?.label}`}
           </h3>
-          {filteredExpenseTypeStats.length > 0 ? (
+          {expenseTypeStats.length > 0 ? (
             <div className="space-y-3">
-              {filteredExpenseTypeStats.map((item, index) => (
+              {expenseTypeStats.map((item, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">{item.name}</span>
                   <span className="text-sm font-medium text-gray-900">
@@ -285,16 +249,15 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Evolução Financeira
-          {selectedMonth && ` - ${months.find(m => m.value === selectedMonth)?.label}`}
         </h3>
         <div className="h-64">
           <FinancialChart 
             data={[
               {
-                month: selectedMonth ? months.find(m => m.value === selectedMonth)?.label : 'Período',
-                income: filteredStats.income,
-                expenses: filteredStats.expenses,
-                balance: filteredStats.balance
+                month: finance.selectedYear ? finance.selectedYear.toString() : 'Período',
+                income: stats.income,
+                expenses: stats.expenses,
+                balance: stats.balance
               }
             ]}
           />
