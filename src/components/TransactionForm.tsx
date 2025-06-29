@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Transaction, Category, ExpenseType } from '../types';
 
 interface TransactionFormProps {
@@ -9,6 +9,197 @@ interface TransactionFormProps {
   onSubmit: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
 }
+
+interface DatePickerProps {
+  value: string;
+  onChange: (date: string) => void;
+  placeholder: string;
+  minDate?: string;
+  maxDate?: string;
+  error?: boolean;
+}
+
+const DatePicker = ({ value, onChange, placeholder, minDate, maxDate, error }: DatePickerProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentDate, setCurrentDate] = useState(() => {
+    const date = value ? new Date(value + 'T00:00:00') : new Date();
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  });
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('pt-BR');
+  };
+
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const isDateDisabled = (day: number) => {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateString = date.toISOString().split('T')[0];
+    
+    if (minDate && dateString < minDate) return true;
+    if (maxDate && dateString > maxDate) return true;
+    
+    return false;
+  };
+
+  const handleDateSelect = (day: number) => {
+    const selectedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateString = selectedDate.toISOString().split('T')[0];
+    onChange(dateString);
+    setIsOpen(false);
+  };
+
+  const prevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
+
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(false);
+  };
+
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(currentDate);
+    const firstDay = getFirstDayOfMonth(currentDate);
+    const days = [];
+
+    // Dias vazios no início
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="w-8 h-8"></div>);
+    }
+
+    // Dias do mês
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isSelected = value === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toISOString().split('T')[0];
+      const isDisabled = isDateDisabled(day);
+      
+      days.push(
+        <button
+          key={day}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isDisabled) {
+              handleDateSelect(day);
+            }
+          }}
+          disabled={isDisabled}
+          className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+            isSelected
+              ? 'bg-blue-500 text-white'
+              : isDisabled
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          {day}
+        </button>
+      );
+    }
+
+    return days;
+  };
+
+  return (
+    <div className="relative">
+      <div 
+        className={`input w-full pr-10 flex items-center justify-between cursor-pointer ${error ? 'border-red-500' : ''}`}
+        onClick={handleToggle}
+      >
+        <span className={value ? 'text-gray-900' : 'text-gray-500'}>
+          {value ? formatDate(value) : placeholder}
+        </span>
+        <Calendar className="h-4 w-4 text-gray-400" />
+      </div>
+
+      {isOpen && (
+        <>
+          {/* Overlay para fechar quando clicar fora */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={handleOverlayClick}
+          />
+          
+          {/* Popup do calendário */}
+          <div className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 max-w-[280px] w-full">
+            {/* Header do calendário */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={prevMonth}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4 text-gray-600" />
+              </button>
+              <h3 className="text-sm font-semibold text-gray-900">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h3>
+              <button
+                onClick={nextMonth}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <ChevronRight className="h-4 w-4 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Dias da semana */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                <div key={day} className="w-8 h-8 flex items-center justify-center text-xs font-medium text-gray-500">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Dias do mês */}
+            <div className="grid grid-cols-7 gap-1">
+              {renderCalendar()}
+            </div>
+
+            {/* Botão de hoje */}
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const today = new Date().toISOString().split('T')[0];
+                  if (!isDateDisabled(new Date().getDate())) {
+                    onChange(today);
+                    setIsOpen(false);
+                  }
+                }}
+                className="w-full py-1 px-3 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              >
+                Hoje
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export const TransactionForm = ({ 
   transaction, 
@@ -276,16 +467,12 @@ export const TransactionForm = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Data *
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="input w-full pr-10"
-                max={new Date().toISOString().split('T')[0]}
-              />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+            <DatePicker
+              value={formData.date}
+              onChange={handleDateChange}
+              placeholder="Selecione uma data"
+              maxDate={new Date().toISOString().split('T')[0]}
+            />
             <p className="text-xs text-gray-500 mt-1">
               Data da transação (não pode ser futura)
             </p>
@@ -315,16 +502,13 @@ export const TransactionForm = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Data de Vencimento *
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-                    className={`input w-full pr-10 ${errors.dueDate ? 'border-red-500' : ''}`}
-                    min={formData.date}
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                </div>
+                <DatePicker
+                  value={formData.dueDate}
+                  onChange={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
+                  placeholder="Selecione uma data"
+                  minDate={formData.date}
+                  error={!!errors.dueDate}
+                />
                 {errors.dueDate && (
                   <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>
                 )}

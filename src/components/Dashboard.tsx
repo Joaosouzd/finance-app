@@ -192,7 +192,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Despesas por Categoria - {monthNames[finance.selectedMonth]} {finance.selectedYear}
+            Despesas por Categoria
           </h3>
           {categoryStats.length > 0 ? (
             <div className="space-y-3">
@@ -214,7 +214,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Despesas por Tipo - {monthNames[finance.selectedMonth]} {finance.selectedYear}
+            Despesas por Tipo
           </h3>
           {expenseTypeStats.length > 0 ? (
             <div className="space-y-3">
