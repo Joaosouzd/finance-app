@@ -141,39 +141,40 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </select>
           </div>
 
-          {/* Month Filter - Only show if year is selected */}
-          {finance.selectedYear && (
-            <div className="flex flex-col space-y-1">
-              <label className="text-sm font-medium text-gray-700">
-                Mês:
-              </label>
-              <select
-                value={finance.selectedMonth !== null ? finance.selectedMonth : ''}
-                onChange={(e) => handleMonthChange(Number(e.target.value))}
-                className="input max-w-xs"
-              >
-                <option value="">Todos os meses</option>
-                {availableMonths.map((month) => (
-                  <option key={month} value={month}>
-                    {monthNames[month]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Month Filter - Always visible */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Mês:
+            </label>
+            <select
+              value={finance.selectedMonth !== null ? finance.selectedMonth : ''}
+              onChange={(e) => handleMonthChange(Number(e.target.value))}
+              className="input max-w-xs"
+            >
+              <option value="">Todos os meses</option>
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {monthNames[month]}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* Clear Filters */}
-          {(finance.selectedYear || finance.selectedMonth !== null) && (
+          {/* Clear Filters - Always visible */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              &nbsp;
+            </label>
             <button
               onClick={() => {
                 finance.setSelectedYear(null);
                 finance.setSelectedMonth(null);
               }}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md bg-white"
             >
               Limpar
             </button>
-          )}
+          </div>
         </div>
       </div>
 
