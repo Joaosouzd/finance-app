@@ -36,9 +36,14 @@ export const useFinance = () => {
         
         // Definir ano inicial baseado nas transações existentes
         if (storedTransactions.length > 0) {
-          const years = getAvailableYears();
-          if (years.length > 0) {
-            setSelectedYear(years[0]); // Ano mais recente
+          const years = new Set<number>();
+          storedTransactions.forEach(transaction => {
+            const year = new Date(transaction.date).getFullYear();
+            years.add(year);
+          });
+          const sortedYears = Array.from(years).sort((a, b) => b - a);
+          if (sortedYears.length > 0) {
+            setSelectedYear(sortedYears[0]); // Ano mais recente
           }
         }
       } catch (error) {
@@ -76,6 +81,25 @@ export const useFinance = () => {
       console.error('Error calculating financial summary:', error);
     }
   }, [transactions, getDeadlinesFromTransactions]);
+
+  // Update selected year when new transactions are added
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const years = new Set<number>();
+      transactions.forEach(transaction => {
+        const year = new Date(transaction.date).getFullYear();
+        years.add(year);
+      });
+      const sortedYears = Array.from(years).sort((a, b) => b - a);
+      
+      // Se não há ano selecionado ou se o ano selecionado não existe mais, selecionar o mais recente
+      if (!selectedYear || !years.has(selectedYear)) {
+        if (sortedYears.length > 0) {
+          setSelectedYear(sortedYears[0]);
+        }
+      }
+    }
+  }, [transactions, selectedYear]);
 
   // Calculate monthly data for charts
   const getMonthlyData = useCallback(() => {
@@ -293,6 +317,12 @@ export const useFinance = () => {
         months.add(transactionDate.getMonth());
       }
     });
+    
+    // Retornar todos os meses do ano se não há transações específicas
+    if (months.size === 0) {
+      return Array.from({ length: 12 }, (_, i) => i);
+    }
+    
     return Array.from(months).sort((a, b) => a - b); // Ordem crescente
   }, [transactions, selectedYear]);
 

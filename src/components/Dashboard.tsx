@@ -109,7 +109,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         {/* Year and Month Filters */}
         <div className="flex items-center space-x-3">
           {/* Year Filter */}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-col space-y-1">
             <label className="text-sm font-medium text-gray-700">
               Filtre por ano:
             </label>
@@ -129,7 +129,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
           {/* Month Filter - Only show if year is selected */}
           {finance.selectedYear && (
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col space-y-1">
               <label className="text-sm font-medium text-gray-700">
                 Mês:
               </label>
