@@ -13,33 +13,29 @@ interface DeadlinesPageProps {
 export const DeadlinesPage: React.FC<DeadlinesPageProps> = ({ onNavigate }) => {
   const finance = useFinance();
   const [editingDeadline, setEditingDeadline] = useState<Deadline | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
 
-  // Obter meses únicos das transações
-  const getUniqueMonths = () => {
-    const months = new Set<string>();
-    finance.transactions.forEach((t: any) => {
-      if (t.dueDate) {
-        const date = new Date(t.dueDate + 'T00:00:00');
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        months.add(monthKey);
-      }
-    });
-    
-    return Array.from(months)
-      .sort()
-      .reverse()
-      .map(month => ({
-        value: month,
-        label: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { 
-          month: 'long', 
-          year: 'numeric' 
-        })
-      }));
+  // Nomes dos meses
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  // Obter mês atual
+  const getCurrentMonth = () => {
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth()
+    };
   };
 
-  // Obter prazos das transações
+  const currentMonth = getCurrentMonth();
+
+  // Obter prazos apenas do mês atual
   const getDeadlines = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const deadlines = finance.transactions
       .filter((t: any) => t.dueDate)
       .map((t: any) => ({
@@ -51,22 +47,18 @@ export const DeadlinesPage: React.FC<DeadlinesPageProps> = ({ onNavigate }) => {
         category: t.category,
         expenseType: t.expenseType
       }))
-      .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-
-    // Filtrar por mês se selecionado
-    if (selectedMonth) {
-      return deadlines.filter((d: any) => {
+      .filter((d: any) => {
         const dueDate = new Date(d.dueDate + 'T00:00:00');
-        const dueMonth = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}`;
-        return dueMonth === selectedMonth;
-      });
-    }
+        // Mostrar apenas prazos do mês atual
+        return dueDate.getFullYear() === currentMonth.year && 
+               dueDate.getMonth() === currentMonth.month;
+      })
+      .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
     return deadlines;
   };
 
   const deadlines = getDeadlines();
-  const months = getUniqueMonths();
 
   // Calcular estatísticas
   const getStats = () => {
@@ -176,50 +168,29 @@ export const DeadlinesPage: React.FC<DeadlinesPageProps> = ({ onNavigate }) => {
           <p className="text-gray-600">Acompanhe seus vencimentos</p>
         </div>
         
-        {/* Month Filter */}
+        {/* Current Month Display */}
         <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">
-            Filtrar por Mês:
-          </label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="input max-w-xs"
-          >
-            <option value="">Todos os meses</option>
-            {months.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-          {selectedMonth && (
-            <button
-              onClick={() => setSelectedMonth('')}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-            >
-              Limpar
-            </button>
-          )}
+          <Calendar className="h-5 w-5 text-gray-600" />
+          <span className="text-lg font-semibold text-gray-900">
+            {monthNames[currentMonth.month]} {currentMonth.year}
+          </span>
         </div>
       </div>
 
-      {/* Selected Month Info */}
-      {selectedMonth && (
-        <div className="card bg-blue-50 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-blue-900">
-                Visualizando: {months.find(m => m.value === selectedMonth)?.label}
-              </h3>
-              <p className="text-sm text-blue-700">
-                Prazos filtrados para o mês selecionado
-              </p>
-            </div>
-            <Calendar className="h-8 w-8 text-blue-500" />
+      {/* Current Month Info */}
+      <div className="card bg-blue-50 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-blue-900">
+              Mês Atual - {monthNames[currentMonth.month]} {currentMonth.year}
+            </h3>
+            <p className="text-sm text-blue-700">
+              Prazos do mês atual (atualização automática)
+            </p>
           </div>
+          <Calendar className="h-8 w-8 text-blue-500" />
         </div>
-      )}
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
@@ -290,10 +261,7 @@ export const DeadlinesPage: React.FC<DeadlinesPageProps> = ({ onNavigate }) => {
           <div className="text-center py-8">
             <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">
-              {selectedMonth 
-                ? `Nenhum prazo encontrado para ${months.find(m => m.value === selectedMonth)?.label}.`
-                : 'Nenhum prazo encontrado. Adicione transações com vencimento para ver os prazos aqui.'
-              }
+              Nenhum prazo encontrado para {monthNames[currentMonth.month]} {currentMonth.year}.
             </p>
           </div>
         ) : (

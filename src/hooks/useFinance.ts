@@ -17,8 +17,8 @@ export const useFinance = () => {
   });
 
   // Filtros
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -33,6 +33,14 @@ export const useFinance = () => {
         setDeadlines(storedDeadlines);
         setCategories(storedCategories);
         setExpenseTypes(storedExpenseTypes);
+        
+        // Definir ano inicial baseado nas transações existentes
+        if (storedTransactions.length > 0) {
+          const years = getAvailableYears();
+          if (years.length > 0) {
+            setSelectedYear(years[0]); // Ano mais recente
+          }
+        }
       } catch (error) {
         console.error('Error loading data from localStorage:', error);
       }
@@ -264,18 +272,20 @@ export const useFinance = () => {
     }
   }, []);
 
-  // Obter anos disponíveis
+  // Obter anos disponíveis baseados nas transações
   const getAvailableYears = useCallback(() => {
     const years = new Set<number>();
     transactions.forEach(transaction => {
       const year = new Date(transaction.date).getFullYear();
       years.add(year);
     });
-    return Array.from(years).sort((a, b) => b - a); // Ordem decrescente
+    return Array.from(years).sort((a, b) => b - a); // Ordem decrescente (mais recente primeiro)
   }, [transactions]);
 
   // Obter meses disponíveis para o ano selecionado
   const getAvailableMonths = useCallback(() => {
+    if (!selectedYear) return [];
+    
     const months = new Set<number>();
     transactions.forEach(transaction => {
       const transactionDate = new Date(transaction.date);
@@ -290,8 +300,9 @@ export const useFinance = () => {
   const filteredTransactions = useCallback(() => {
     return transactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
-      return transactionDate.getFullYear() === selectedYear && 
-             transactionDate.getMonth() === selectedMonth;
+      const yearMatch = selectedYear ? transactionDate.getFullYear() === selectedYear : true;
+      const monthMatch = selectedMonth !== null ? transactionDate.getMonth() === selectedMonth : true;
+      return yearMatch && monthMatch;
     });
   }, [transactions, selectedYear, selectedMonth]);
 
@@ -299,8 +310,9 @@ export const useFinance = () => {
   const filteredDeadlines = useCallback(() => {
     return deadlines.filter(deadline => {
       const deadlineDate = new Date(deadline.dueDate);
-      return deadlineDate.getFullYear() === selectedYear && 
-             deadlineDate.getMonth() === selectedMonth;
+      const yearMatch = selectedYear ? deadlineDate.getFullYear() === selectedYear : true;
+      const monthMatch = selectedMonth !== null ? deadlineDate.getMonth() === selectedMonth : true;
+      return yearMatch && monthMatch;
     });
   }, [deadlines, selectedYear, selectedMonth]);
 

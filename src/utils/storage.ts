@@ -266,13 +266,6 @@ export const storage = {
     try {
       console.log('Storage: Excluindo tipo de despesa:', id);
       
-      // Verificar se é um tipo padrão
-      const defaultTypeIds = ['normal', 'reserva', 'devolucao'];
-      if (defaultTypeIds.includes(id)) {
-        console.log('Storage: Tentativa de excluir tipo padrão bloqueada:', id);
-        throw new Error('Não é possível excluir tipos de despesa padrão.');
-      }
-      
       const expenseTypes = storage.getExpenseTypes();
       console.log('Storage: Tipos antes da exclusão:', expenseTypes);
       

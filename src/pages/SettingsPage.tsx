@@ -147,14 +147,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const incomeCategories = finance.categories.filter((c: Category) => c.type === 'income');
   const expenseCategories = finance.categories.filter((c: Category) => c.type === 'expense');
 
-  const isDefaultCategory = (category: Category) => {
-    return ['Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Educação', 'Lazer', 'Outros'].includes(category.name);
-  };
-
-  const isDefaultExpenseType = (expenseType: ExpenseType) => {
-    return ['Normal', 'Reserva', 'Reembolso'].includes(expenseType.name);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -194,11 +186,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                   style={{ backgroundColor: category.color }}
                 />
                 <span className="font-medium text-gray-900">{category.name}</span>
-                {isDefaultCategory(category) && (
-                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                    Padrão
-                  </span>
-                )}
               </div>
               <div className="flex space-x-2">
                 {editingCategory?.id === category.id ? (
@@ -235,15 +222,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     >
                       <Edit className="h-4 w-4" />
                     </button>
-                    {!isDefaultCategory(category) && (
-                      <button
-                        onClick={() => handleDeleteCategory(category)}
-                        className="text-gray-400 hover:text-danger-600"
-                        title="Excluir categoria"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDeleteCategory(category)}
+                      className="text-gray-400 hover:text-danger-600"
+                      title="Excluir categoria"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </>
                 )}
               </div>
@@ -315,11 +300,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 <div>
                   <span className="font-medium text-gray-900">{expenseType.name}</span>
                   <p className="text-sm text-gray-600">{expenseType.description}</p>
-                  {isDefaultExpenseType(expenseType) && (
-                    <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                      Padrão
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="flex space-x-2">
@@ -363,15 +343,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     >
                       <Edit className="h-4 w-4" />
                     </button>
-                    {!isDefaultExpenseType(expenseType) && (
-                      <button
-                        onClick={() => handleDeleteExpenseType(expenseType)}
-                        className="text-gray-400 hover:text-danger-600"
-                        title="Excluir tipo de despesa"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDeleteExpenseType(expenseType)}
+                      className="text-gray-400 hover:text-danger-600"
+                      title="Excluir tipo de despesa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </>
                 )}
               </div>

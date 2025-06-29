@@ -10,7 +10,6 @@ interface DashboardProps {
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const finance = useFinance();
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
 
   // Nomes dos meses
   const monthNames = [
@@ -30,9 +29,8 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   // Funções para navegar entre anos e meses
   const handleYearChange = (year: number) => {
     finance.setSelectedYear(year);
-    // Resetar para o primeiro mês disponível do ano ou janeiro
-    const monthsInYear = finance.getAvailableMonths();
-    finance.setSelectedMonth(monthsInYear.length > 0 ? monthsInYear[0] : 0);
+    // Resetar mês quando mudar o ano
+    finance.setSelectedMonth(null);
   };
 
   const handleMonthChange = (month: number) => {
@@ -40,47 +38,29 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   };
 
   const nextMonth = () => {
-    const currentIndex = availableMonths.indexOf(finance.selectedMonth);
-    if (currentIndex < availableMonths.length - 1) {
-      handleMonthChange(availableMonths[currentIndex + 1]);
+    if (finance.selectedMonth !== null) {
+      const currentIndex = availableMonths.indexOf(finance.selectedMonth);
+      if (currentIndex < availableMonths.length - 1) {
+        handleMonthChange(availableMonths[currentIndex + 1]);
+      }
     }
   };
 
   const prevMonth = () => {
-    const currentIndex = availableMonths.indexOf(finance.selectedMonth);
-    if (currentIndex > 0) {
-      handleMonthChange(availableMonths[currentIndex - 1]);
+    if (finance.selectedMonth !== null) {
+      const currentIndex = availableMonths.indexOf(finance.selectedMonth);
+      if (currentIndex > 0) {
+        handleMonthChange(availableMonths[currentIndex - 1]);
+      }
     }
   };
 
-  // Obter meses únicos das transações para compatibilidade
-  const getUniqueMonths = () => {
-    const months = new Set<string>();
-    finance.transactions.forEach((t: any) => {
-      const date = new Date(t.date + 'T00:00:00');
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.add(monthKey);
-    });
-    
-    return Array.from(months)
-      .sort()
-      .reverse()
-      .map(month => ({
-        value: month,
-        label: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { 
-          month: 'long', 
-          year: 'numeric' 
-        })
-      }));
-  };
-
-  // Calcular resumo do mês selecionado
-  const getMonthlySummary = () => {
+  // Calcular resumo do período selecionado
+  const getPeriodSummary = () => {
     return stats;
   };
 
-  const currentSummary = getMonthlySummary();
-  const months = getUniqueMonths();
+  const currentSummary = getPeriodSummary();
 
   const cards = [
     {
@@ -126,26 +106,55 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           <p className="text-gray-600">Visão geral das suas finanças</p>
         </div>
         
-        {/* Month Filter */}
-        <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">
-            Filtrar por Mês:
-          </label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="input max-w-xs"
-          >
-            <option value="">Todos os meses</option>
-            {months.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-          {selectedMonth && (
+        {/* Year and Month Filters */}
+        <div className="flex items-center space-x-3">
+          {/* Year Filter */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">
+              Filtre por ano:
+            </label>
+            <select
+              value={finance.selectedYear || ''}
+              onChange={(e) => handleYearChange(Number(e.target.value))}
+              className="input max-w-xs"
+            >
+              <option value="">Selecione um ano</option>
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Month Filter - Only show if year is selected */}
+          {finance.selectedYear && (
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">
+                Mês:
+              </label>
+              <select
+                value={finance.selectedMonth !== null ? finance.selectedMonth : ''}
+                onChange={(e) => handleMonthChange(Number(e.target.value))}
+                className="input max-w-xs"
+              >
+                <option value="">Todos os meses</option>
+                {availableMonths.map((month) => (
+                  <option key={month} value={month}>
+                    {monthNames[month]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Clear Filters */}
+          {(finance.selectedYear || finance.selectedMonth !== null) && (
             <button
-              onClick={() => setSelectedMonth('')}
+              onClick={() => {
+                finance.setSelectedYear(null);
+                finance.setSelectedMonth(null);
+              }}
               className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
             >
               Limpar
@@ -154,16 +163,17 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
       </div>
 
-      {/* Selected Month Info */}
-      {selectedMonth && (
+      {/* Selected Period Info */}
+      {(finance.selectedYear || finance.selectedMonth !== null) && (
         <div className="card bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-blue-900">
-                Visualizando: {months.find(m => m.value === selectedMonth)?.label}
+                Visualizando: {finance.selectedYear}
+                {finance.selectedMonth !== null && ` - ${monthNames[finance.selectedMonth]}`}
               </h3>
               <p className="text-sm text-blue-700">
-                Dados filtrados para o mês selecionado
+                Dados filtrados para o período selecionado
               </p>
             </div>
             <Calendar className="h-8 w-8 text-blue-500" />
