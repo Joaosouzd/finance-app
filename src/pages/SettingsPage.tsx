@@ -174,7 +174,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         </div>
 
         {/* Income Categories */}
-        <div className="space-y-3">
+        <div className="space-y-3 mb-6">
+          <h3 className="text-md font-medium text-gray-700 mb-3">Receitas</h3>
           {incomeCategories.map((category: Category) => (
             <div
               key={category.id}
@@ -238,6 +239,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
         {/* Expense Categories */}
         <div className="space-y-3">
+          <h3 className="text-md font-medium text-gray-700 mb-3">Despesas</h3>
           {expenseCategories.map((category: Category) => (
             <div
               key={category.id}

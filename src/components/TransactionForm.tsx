@@ -211,15 +211,40 @@ export const TransactionForm = ({
   const [formData, setFormData] = useState({
     description: transaction?.description || '',
     amount: transaction?.amount || 0,
-    type: transaction?.type || 'expense',
+    type: transaction?.type || 'income',
     expenseType: transaction?.expenseType || 'normal',
     category: transaction?.category || '',
-    date: transaction?.date || new Date().toISOString().split('T')[0],
+    date: transaction?.date || '',
     dueDate: transaction?.dueDate || '',
     hasDueDate: !!transaction?.dueDate,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Função para formatar valor para moeda brasileira
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  // Função para converter string formatada de volta para número
+  const parseCurrency = (value: string): number => {
+    // Remove todos os caracteres não numéricos exceto vírgula e ponto
+    const cleanValue = value.replace(/[^\d,.-]/g, '');
+    // Substitui vírgula por ponto para conversão
+    const numericValue = cleanValue.replace(',', '.');
+    return parseFloat(numericValue) || 0;
+  };
+
+  // Função para formatar valor para exibição
+  const formatDisplayValue = (value: number): string => {
+    if (value === 0) return '';
+    return formatCurrency(value);
+  };
 
   useEffect(() => {
     if (transaction) {
@@ -249,6 +274,10 @@ export const TransactionForm = ({
 
     if (!formData.category) {
       newErrors.category = 'Categoria é obrigatória';
+    }
+
+    if (!formData.date) {
+      newErrors.date = 'Data é obrigatória';
     }
 
     if (formData.hasDueDate && !formData.dueDate) {
@@ -363,12 +392,11 @@ export const TransactionForm = ({
               Valor *
             </label>
             <input
-              type="number"
-              step="0.01"
-              value={formData.amount}
-              onChange={(e) => setFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+              type="text"
+              value={formatDisplayValue(formData.amount)}
+              onChange={(e) => setFormData(prev => ({ ...prev, amount: parseCurrency(e.target.value) }))}
               className={`input w-full ${errors.amount ? 'border-red-500' : ''}`}
-              placeholder="0,00"
+              placeholder="R$ 0,00"
             />
             {errors.amount && (
               <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
@@ -471,10 +499,13 @@ export const TransactionForm = ({
               value={formData.date}
               onChange={handleDateChange}
               placeholder="Selecione uma data"
-              maxDate={new Date().toISOString().split('T')[0]}
+              error={!!errors.date}
             />
+            {errors.date && (
+              <p className="text-red-500 text-sm mt-1">{errors.date}</p>
+            )}
             <p className="text-xs text-gray-500 mt-1">
-              Data da transação (não pode ser futura)
+              Data da transação
             </p>
           </div>
 
@@ -488,7 +519,7 @@ export const TransactionForm = ({
                 onChange={(e) => setFormData(prev => ({ 
                   ...prev, 
                   hasDueDate: e.target.checked,
-                  dueDate: e.target.checked ? formData.date : ''
+                  dueDate: ''
                 }))}
                 className="mr-2"
               />
