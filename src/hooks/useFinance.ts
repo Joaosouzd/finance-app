@@ -390,6 +390,42 @@ export const useFinance = () => {
       .sort((a, b) => b.amount - a.amount);
   }, [filteredTransactions, expenseTypes]);
 
+  // Dados para o gráfico de evolução financeira mensal
+  const getMonthlyEvolution = useCallback(() => {
+    const monthlyMap = new Map<number, { income: number; expenses: number; balance: number }>();
+
+    // Inicializar todos os meses com valores zerados
+    for (let month = 0; month < 12; month++) {
+      monthlyMap.set(month, { income: 0, expenses: 0, balance: 0 });
+    }
+
+    // Processar transações
+    transactions.forEach(transaction => {
+      const date = new Date(transaction.date);
+      const month = date.getMonth();
+      const current = monthlyMap.get(month) || { income: 0, expenses: 0, balance: 0 };
+      
+      if (transaction.type === 'income') {
+        current.income += transaction.amount;
+      } else {
+        current.expenses += transaction.amount;
+      }
+      
+      current.balance = current.income - current.expenses;
+      monthlyMap.set(month, current);
+    });
+
+    // Converter para array ordenado por mês
+    return Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([month, data]) => ({
+        month,
+        income: data.income,
+        expenses: data.expenses,
+        balance: data.balance,
+      }));
+  }, [transactions]);
+
   return {
     transactions,
     deadlines,
@@ -429,5 +465,8 @@ export const useFinance = () => {
 
     // Estatísticas por tipo de despesa para o período
     expenseTypeStats,
+
+    // Dados para gráficos
+    getMonthlyEvolution,
   };
 }; 

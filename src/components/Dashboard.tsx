@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, AlertTriangle, Calendar, ChevronLeft, Chevron
 import { formatCurrency } from '../utils/helpers';
 import { useFinance } from '../hooks/useFinance';
 import { FinancialChart } from './FinancialChart';
+import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -62,6 +63,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
   const currentSummary = getPeriodSummary();
 
+  // Cores para o gráfico de pizza
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF6B6B'];
+
+  // Preparar dados para o gráfico de pizza das categorias
+  const pieChartData = categoryStats.map((item, index) => ({
+    name: item.name,
+    value: item.amount,
+    color: COLORS[index % COLORS.length]
+  }));
+
+  // Preparar dados para o gráfico de evolução financeira
+  const evolutionData = finance.getMonthlyEvolution();
+
   const cards = [
     {
       title: 'Saldo',
@@ -106,7 +120,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           <p className="text-gray-600">Visão geral das suas finanças</p>
         </div>
         
-        {/* Year and Month Filters */}
+        {/* Year and Month Filters - Hidden by default */}
         <div className="flex items-center space-x-3">
           {/* Year Filter */}
           <div className="flex flex-col space-y-1">
@@ -215,7 +229,99 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         ))}
       </div>
 
-      {/* Charts */}
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Financial Evolution Chart */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Evolução Financeira Mensal
+          </h3>
+          {evolutionData.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={evolutionData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="month" 
+                    tickFormatter={(value) => monthNames[value]}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => formatCurrency(value).replace('R$', '')}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                    labelFormatter={(label) => monthNames[label]}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="income" 
+                    stroke="#10B981" 
+                    strokeWidth={2}
+                    name="Receitas"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="expenses" 
+                    stroke="#EF4444" 
+                    strokeWidth={2}
+                    name="Despesas"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="balance" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    name="Saldo"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">
+              Nenhum dado disponível para o gráfico de evolução
+            </p>
+          )}
+        </div>
+
+        {/* Category Pie Chart */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Distribuição por Categoria
+          </h3>
+          {pieChartData.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">
+              Nenhuma despesa encontrada para este período
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Category and Expense Type Lists */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
