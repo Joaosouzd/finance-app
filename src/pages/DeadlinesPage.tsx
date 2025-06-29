@@ -1,71 +1,97 @@
+import * as React from 'react';
 import { useState } from 'react';
-import { Edit, Trash2, AlertTriangle, Calendar, DollarSign, CheckCircle } from 'lucide-react';
-import { Deadline, Transaction } from '../types';
+import { Plus, Edit, Trash2, AlertTriangle, Calendar, DollarSign, CheckCircle, Clock, TrendingDown } from 'lucide-react';
+import { useFinance } from '../hooks/useFinance';
+import { Deadline, Transaction, Category } from '../types';
 import { formatDate, formatCurrency } from '../utils/helpers';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface DeadlinesPageProps {
-  finance: any;
+  onNavigate: (page: string) => void;
 }
 
-export const DeadlinesPage = ({ finance }: DeadlinesPageProps) => {
+export const DeadlinesPage: React.FC<DeadlinesPageProps> = ({ onNavigate }) => {
+  const finance = useFinance();
   const [editingDeadline, setEditingDeadline] = useState<Deadline | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
 
-  // Obter prazos que são vinculados às transações
-  const getDeadlinesFromTransactions = (): Deadline[] => {
-    return finance.transactions
-      .filter((t: Transaction) => t.dueDate)
-      .map((t: Transaction) => ({
-        id: t.id, // Usar o ID da transação como ID do prazo
-        title: t.description,
-        amount: t.amount,
-        dueDate: t.dueDate!,
-        category: t.category,
-        type: t.type,
-        status: 'pending',
-        createdAt: t.createdAt,
-        transactionId: t.id, // Referência à transação original
+  // Obter meses únicos das transações
+  const getUniqueMonths = () => {
+    const months = new Set<string>();
+    finance.transactions.forEach((t: any) => {
+      if (t.dueDate) {
+        const date = new Date(t.dueDate + 'T00:00:00');
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        months.add(monthKey);
+      }
+    });
+    
+    return Array.from(months)
+      .sort()
+      .reverse()
+      .map(month => ({
+        value: month,
+        label: new Date(month + '-01T00:00:00').toLocaleDateString('pt-BR', { 
+          month: 'long', 
+          year: 'numeric' 
+        })
       }));
   };
 
-  const deadlines = getDeadlinesFromTransactions();
+  // Obter prazos das transações
+  const getDeadlines = () => {
+    const deadlines = finance.transactions
+      .filter((t: any) => t.dueDate)
+      .map((t: any) => ({
+        id: t.id,
+        description: t.description,
+        amount: t.amount,
+        type: t.type,
+        dueDate: t.dueDate,
+        category: t.category,
+        expenseType: t.expenseType
+      }))
+      .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
-  // Calcular estatísticas dos prazos
-  const getDeadlineStats = () => {
+    // Filtrar por mês se selecionado
+    if (selectedMonth) {
+      return deadlines.filter((d: any) => {
+        const dueDate = new Date(d.dueDate + 'T00:00:00');
+        const dueMonth = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}`;
+        return dueMonth === selectedMonth;
+      });
+    }
+
+    return deadlines;
+  };
+
+  const deadlines = getDeadlines();
+  const months = getUniqueMonths();
+
+  // Calcular estatísticas
+  const getStats = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const pending = deadlines.filter(d => {
+    
+    const total = deadlines.length;
+    const pending = deadlines.filter((d: any) => new Date(d.dueDate + 'T00:00:00') >= today).length;
+    const overdue = deadlines.filter((d: any) => new Date(d.dueDate + 'T00:00:00') < today).length;
+    const dueToday = deadlines.filter((d: any) => {
       const dueDate = new Date(d.dueDate + 'T00:00:00');
-      return dueDate > today;
-    });
-
-    const overdue = deadlines.filter(d => {
-      const dueDate = new Date(d.dueDate + 'T00:00:00');
-      return dueDate < today;
-    });
-
-    const dueToday = deadlines.filter(d => {
-      const dueDate = new Date(d.dueDate + 'T00:00:00');
-      return dueDate.toDateString() === today.toDateString();
-    });
-
-    const dueSoon = deadlines.filter(d => {
+      return dueDate.getTime() === today.getTime();
+    }).length;
+    
+    const dueSoon = deadlines.filter((d: any) => {
       const dueDate = new Date(d.dueDate + 'T00:00:00');
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays > 0 && diffDays <= 7;
-    });
+    }).length;
 
-    return {
-      total: deadlines.length,
-      pending: pending.length,
-      overdue: overdue.length,
-      dueToday: dueToday.length,
-      dueSoon: dueSoon.length,
-    };
+    return { total, pending, overdue, dueToday, dueSoon };
   };
 
-  const stats = getDeadlineStats();
+  const stats = getStats();
 
   const handleEditDeadline = (deadline: Deadline, updates: Partial<Deadline>) => {
     // Atualizar a transação correspondente
@@ -94,58 +120,50 @@ export const DeadlinesPage = ({ finance }: DeadlinesPageProps) => {
     return category?.name || 'Sem categoria';
   };
 
-  const getCategoryColor = (categoryId: string) => {
-    const category = finance.categories.find((c: any) => c.id === categoryId);
-    return category?.color || '#6B7280';
+  const getExpenseTypeName = (expenseTypeId: string) => {
+    const expenseType = finance.expenseTypes.find((et: any) => et.id === expenseTypeId);
+    return expenseType?.name || 'Normal';
   };
 
-  const isOverdue = (dueDate: string) => {
-    return new Date(dueDate + 'T00:00:00') < new Date();
-  };
-
-  const isDueToday = (dueDate: string) => {
+  const getStatusInfo = (dueDate: string) => {
     const today = new Date();
-    const due = new Date(dueDate + 'T00:00:00');
-    return due.toDateString() === today.toDateString();
-  };
-
-  const isDueSoon = (dueDate: string) => {
-    const today = new Date();
-    const due = new Date(dueDate + 'T00:00:00');
-    const diffTime = due.getTime() - today.getTime();
+    today.setHours(0, 0, 0, 0);
+    const deadline = new Date(dueDate + 'T00:00:00');
+    const diffTime = deadline.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 && diffDays <= 7;
-  };
 
-  const getStatusBadge = (dueDate: string) => {
-    if (isOverdue(dueDate)) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          <AlertTriangle className="h-3 w-3 mr-1" />
-          Vencido
-        </span>
-      );
-    } else if (isDueToday(dueDate)) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-          <Calendar className="h-3 w-3 mr-1" />
-          Vence Hoje
-        </span>
-      );
-    } else if (isDueSoon(dueDate)) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          <Calendar className="h-3 w-3 mr-1" />
-          Vence em Breve
-        </span>
-      );
+    if (diffDays < 0) {
+      return {
+        status: 'overdue',
+        text: `Vencido há ${Math.abs(diffDays)} dia${Math.abs(diffDays) !== 1 ? 's' : ''}`,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        icon: AlertTriangle
+      };
+    } else if (diffDays === 0) {
+      return {
+        status: 'today',
+        text: 'Vence hoje',
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50',
+        icon: Clock
+      };
+    } else if (diffDays <= 7) {
+      return {
+        status: 'soon',
+        text: `Vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+        color: 'text-yellow-600',
+        bgColor: 'bg-yellow-50',
+        icon: Clock
+      };
     } else {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          <Calendar className="h-3 w-3 mr-1" />
-          No Prazo
-        </span>
-      );
+      return {
+        status: 'pending',
+        text: `Vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        icon: CheckCircle
+      };
     }
   };
 
@@ -155,75 +173,112 @@ export const DeadlinesPage = ({ finance }: DeadlinesPageProps) => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Prazos</h1>
-          <p className="text-gray-600">
-            Prazos vinculados às suas transações
-          </p>
+          <p className="text-gray-600">Acompanhe seus vencimentos</p>
+        </div>
+        
+        {/* Month Filter */}
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium text-gray-700">
+            Filtrar por Mês:
+          </label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="input max-w-xs"
+          >
+            <option value="">Todos os meses</option>
+            {months.map((month) => (
+              <option key={month.value} value={month.value}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+          {selectedMonth && (
+            <button
+              onClick={() => setSelectedMonth('')}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Limpar
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Info Card */}
-      <div className="card bg-blue-50 border-blue-200">
-        <div className="flex items-center">
-          <Calendar className="h-6 w-6 text-blue-500 mr-3" />
-          <div>
-            <h3 className="text-lg font-semibold text-blue-900">
-              Prazos Automáticos
-            </h3>
-            <p className="text-sm text-blue-700">
-              Os prazos são criados automaticamente quando você adiciona uma data de vencimento em uma transação.
-            </p>
+      {/* Selected Month Info */}
+      {selectedMonth && (
+        <div className="card bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900">
+                Visualizando: {months.find(m => m.value === selectedMonth)?.label}
+              </h3>
+              <p className="text-sm text-blue-700">
+                Prazos filtrados para o mês selecionado
+              </p>
+            </div>
+            <Calendar className="h-8 w-8 text-blue-500" />
           </div>
         </div>
-      </div>
+      )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="card bg-gray-50 border-gray-200">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="card">
           <div className="flex items-center">
-            <Calendar className="h-8 w-8 text-gray-500" />
-            <div className="ml-4">
+            <div className="flex-shrink-0 p-2 rounded-lg bg-primary-50">
+              <Calendar className="h-6 w-6 text-primary-600" />
+            </div>
+            <div className="ml-4 flex-1">
               <p className="text-sm font-medium text-gray-600">Total</p>
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
           </div>
         </div>
 
-        <div className="card bg-warning-50 border-warning-200">
+        <div className="card">
           <div className="flex items-center">
-            <Calendar className="h-8 w-8 text-warning-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-warning-800">Pendentes</p>
-              <p className="text-2xl font-bold text-warning-900">{stats.pending}</p>
+            <div className="flex-shrink-0 p-2 rounded-lg bg-green-50">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Pendentes</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
             </div>
           </div>
         </div>
 
-        <div className="card bg-danger-50 border-danger-200">
+        <div className="card">
           <div className="flex items-center">
-            <AlertTriangle className="h-8 w-8 text-danger-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-danger-800">Vencidos</p>
-              <p className="text-2xl font-bold text-danger-900">{stats.overdue}</p>
+            <div className="flex-shrink-0 p-2 rounded-lg bg-red-50">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Vencidos</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.overdue}</p>
             </div>
           </div>
         </div>
 
-        <div className="card bg-orange-50 border-orange-200">
+        <div className="card">
           <div className="flex items-center">
-            <Calendar className="h-8 w-8 text-orange-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-orange-800">Vencem Hoje</p>
-              <p className="text-2xl font-bold text-orange-900">{stats.dueToday}</p>
+            <div className="flex-shrink-0 p-2 rounded-lg bg-orange-50">
+              <Clock className="h-6 w-6 text-orange-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Vence Hoje</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.dueToday}</p>
             </div>
           </div>
         </div>
 
-        <div className="card bg-yellow-50 border-yellow-200">
+        <div className="card">
           <div className="flex items-center">
-            <Calendar className="h-8 w-8 text-yellow-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-yellow-800">Próximos 7 dias</p>
-              <p className="text-2xl font-bold text-yellow-900">{stats.dueSoon}</p>
+            <div className="flex-shrink-0 p-2 rounded-lg bg-yellow-50">
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Vence em 7 dias</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.dueSoon}</p>
             </div>
           </div>
         </div>
@@ -234,9 +289,11 @@ export const DeadlinesPage = ({ finance }: DeadlinesPageProps) => {
         {deadlines.length === 0 ? (
           <div className="text-center py-8">
             <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">Nenhum prazo encontrado</p>
-            <p className="text-sm text-gray-400">
-              Adicione uma data de vencimento em uma transação para criar um prazo automaticamente.
+            <p className="text-gray-500">
+              {selectedMonth 
+                ? `Nenhum prazo encontrado para ${months.find(m => m.value === selectedMonth)?.label}.`
+                : 'Nenhum prazo encontrado. Adicione transações com vencimento para ver os prazos aqui.'
+              }
             </p>
           </div>
         ) : (
@@ -244,74 +301,55 @@ export const DeadlinesPage = ({ finance }: DeadlinesPageProps) => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Título</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Descrição</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Categoria</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Valor</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Tipo</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Vencimento</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-700">Ações</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-700">Valor</th>
                 </tr>
               </thead>
               <tbody>
-                {deadlines.map((deadline) => (
-                  <tr key={deadline.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <DollarSign className={`h-4 w-4 mr-2 ${
-                          deadline.type === 'income' ? 'text-success-500' : 'text-danger-500'
-                        }`} />
-                        <span className="font-medium text-gray-900">
-                          {deadline.title}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                        style={{
-                          backgroundColor: `${getCategoryColor(deadline.category)}20`,
-                          color: getCategoryColor(deadline.category),
-                        }}
-                      >
+                {deadlines.map((deadline: any) => {
+                  const statusInfo = getStatusInfo(deadline.dueDate);
+                  const StatusIcon = statusInfo.icon;
+                  
+                  return (
+                    <tr key={deadline.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center">
+                          <TrendingDown className="h-4 w-4 text-danger-500 mr-2" />
+                          <span className="font-medium text-gray-900">
+                            {deadline.description}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
                         {getCategoryName(deadline.category)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`font-semibold ${
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {deadline.type === 'income' ? 'Receita' : getExpenseTypeName(deadline.expenseType)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {formatDate(deadline.dueDate)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {statusInfo.text}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className={`font-semibold ${
                           deadline.type === 'income' ? 'text-success-600' : 'text-danger-600'
-                        }`}
-                      >
-                        {deadline.type === 'income' ? '+' : '-'}
-                        {formatCurrency(deadline.amount)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {formatDate(deadline.dueDate)}
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(deadline.dueDate)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex justify-center space-x-2">
-                        <button
-                          onClick={() => setEditingDeadline(deadline)}
-                          className="text-gray-400 hover:text-gray-600"
-                          title="Editar transação"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDeadline(deadline)}
-                          className="text-gray-400 hover:text-danger-600"
-                          title="Remover prazo"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        }`}>
+                          {deadline.type === 'income' ? '+' : '-'}
+                          R$ {deadline.amount.toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -320,98 +358,62 @@ export const DeadlinesPage = ({ finance }: DeadlinesPageProps) => {
 
       {/* Edit Form */}
       {editingDeadline && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Editar Transação com Prazo
-            </h3>
-            
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              handleEditDeadline(editingDeadline, {
-                title: formData.get('title') as string,
-                amount: parseFloat(formData.get('amount') as string),
-                dueDate: formData.get('dueDate') as string,
-                category: formData.get('category') as string,
-              });
-            }}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Título
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    defaultValue={editingDeadline.title}
-                    className="input w-full"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor
-                  </label>
-                  <input
-                    type="number"
-                    name="amount"
-                    step="0.01"
-                    defaultValue={editingDeadline.amount}
-                    className="input w-full"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Categoria
-                  </label>
-                  <select
-                    name="category"
-                    defaultValue={editingDeadline.category}
-                    className="input w-full"
-                    required
-                  >
-                    {finance.categories.map((category: any) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data de Vencimento
-                  </label>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    defaultValue={editingDeadline.dueDate}
-                    className="input w-full"
-                    required
-                  />
-                </div>
-
-                <div className="flex space-x-3 pt-4">
-                  <button
-                    type="submit"
-                    className="btn btn-primary flex-1"
-                  >
-                    Salvar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingDeadline(null)}
-                    className="btn btn-secondary flex-1"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Editar Prazo</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Título
+                </label>
+                <input
+                  type="text"
+                  value={editingDeadline.title}
+                  onChange={(e) => setEditingDeadline({ ...editingDeadline, title: e.target.value })}
+                  className="input w-full"
+                />
               </div>
-            </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de Vencimento
+                </label>
+                <input
+                  type="date"
+                  value={editingDeadline.dueDate}
+                  onChange={(e) => setEditingDeadline({ ...editingDeadline, dueDate: e.target.value })}
+                  className="input w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valor
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingDeadline.amount}
+                  onChange={(e) => setEditingDeadline({ ...editingDeadline, amount: parseFloat(e.target.value) || 0 })}
+                  className="input w-full"
+                />
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  handleEditDeadline(editingDeadline, editingDeadline);
+                  setEditingDeadline(null);
+                }}
+                className="btn btn-primary flex-1"
+              >
+                Salvar
+              </button>
+              <button
+                onClick={() => setEditingDeadline(null)}
+                className="btn btn-secondary flex-1"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

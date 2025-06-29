@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar } from 'lucide-react';
-import { Transaction, Category } from '../types';
+import { Transaction, Category, ExpenseType } from '../types';
 
 interface TransactionFormProps {
   transaction?: Transaction;
   categories: Category[];
+  expenseTypes: ExpenseType[];
   onSubmit: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
 }
@@ -12,81 +13,130 @@ interface TransactionFormProps {
 export const TransactionForm = ({ 
   transaction, 
   categories, 
+  expenseTypes,
   onSubmit, 
   onCancel 
 }: TransactionFormProps) => {
   const [formData, setFormData] = useState({
-    description: '',
-    amount: '',
-    type: 'expense' as 'income' | 'expense',
-    category: '',
-    date: new Date().toISOString().split('T')[0],
-    dueDate: '',
-    hasDueDate: false,
+    description: transaction?.description || '',
+    amount: transaction?.amount || 0,
+    type: transaction?.type || 'expense',
+    expenseType: transaction?.expenseType || 'normal',
+    category: transaction?.category || '',
+    date: transaction?.date || new Date().toISOString().split('T')[0],
+    dueDate: transaction?.dueDate || '',
+    hasDueDate: !!transaction?.dueDate,
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (transaction) {
       setFormData({
         description: transaction.description,
-        amount: transaction.amount.toString(),
+        amount: transaction.amount,
         type: transaction.type,
+        expenseType: transaction.expenseType || 'normal',
         category: transaction.category,
         date: transaction.date,
-        dueDate: '',
-        hasDueDate: false,
+        dueDate: transaction.dueDate || '',
+        hasDueDate: !!transaction.dueDate,
       });
     }
   }, [transaction]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.description || !formData.amount || !formData.category) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
-      return;
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Descrição é obrigatória';
+    }
+
+    if (formData.amount <= 0) {
+      newErrors.amount = 'Valor deve ser maior que zero';
+    }
+
+    if (!formData.category) {
+      newErrors.category = 'Categoria é obrigatória';
     }
 
     if (formData.hasDueDate && !formData.dueDate) {
-      alert('Por favor, selecione uma data de vencimento.');
+      newErrors.dueDate = 'Data de vencimento é obrigatória quando marcada';
+    }
+
+    // Validar se a data de vencimento é posterior ou igual à data da transação
+    if (formData.hasDueDate && formData.dueDate && formData.date) {
+      const transactionDate = new Date(formData.date + 'T00:00:00');
+      const dueDate = new Date(formData.dueDate + 'T00:00:00');
+      
+      if (dueDate < transactionDate) {
+        newErrors.dueDate = 'Data de vencimento deve ser igual ou posterior à data da transação';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
       return;
     }
 
-    onSubmit({
-      description: formData.description,
-      amount: parseFloat(formData.amount),
-      type: formData.type,
+    const transactionData: Omit<Transaction, 'id' | 'createdAt'> = {
+      description: formData.description.trim(),
+      amount: formData.amount,
+      type: formData.type as 'income' | 'expense',
+      expenseType: formData.type === 'expense' ? formData.expenseType as 'normal' | 'reserva' | 'devolucao' : undefined,
       category: formData.category,
       date: formData.date,
       dueDate: formData.hasDueDate ? formData.dueDate : undefined,
-    });
+    };
 
-    // Reset form
-    setFormData({
-      description: '',
-      amount: '',
-      type: 'expense',
-      category: '',
-      date: new Date().toISOString().split('T')[0],
-      dueDate: '',
-      hasDueDate: false,
+    onSubmit(transactionData);
+  };
+
+  const handleTypeChange = (type: 'income' | 'expense') => {
+    setFormData(prev => ({
+      ...prev,
+      type,
+      expenseType: type === 'expense' ? 'normal' as const : 'normal' as const,
+    }));
+  };
+
+  const handleDateChange = (date: string) => {
+    setFormData(prev => {
+      const newData = { ...prev, date };
+      
+      // Se tem data de vencimento e a nova data da transação é posterior à data de vencimento
+      if (prev.hasDueDate && prev.dueDate) {
+        const transactionDate = new Date(date + 'T00:00:00');
+        const dueDate = new Date(prev.dueDate + 'T00:00:00');
+        
+        if (transactionDate > dueDate) {
+          newData.dueDate = date; // Atualiza a data de vencimento para a data da transação
+        }
+      }
+      
+      return newData;
     });
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDate = e.target.value;
-    setFormData({ ...formData, date: selectedDate });
-    
-    // Removendo a ativação automática do prazo de vencimento
-    // Agora o usuário precisa marcar manualmente se quiser definir um prazo
+  const getFilteredCategories = () => {
+    return categories.filter(cat => cat.type === formData.type);
   };
 
-  const filteredCategories = categories.filter(cat => cat.type === formData.type);
+  const getExpenseTypeColor = (expenseTypeId: string) => {
+    const expenseType = expenseTypes.find(et => et.id === expenseTypeId);
+    return expenseType?.color || '#6b7280';
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
             {transaction ? 'Editar Transação' : 'Nova Transação'}
           </h2>
@@ -99,165 +149,206 @@ export const TransactionForm = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Type Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo
-            </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  value="expense"
-                  checked={formData.type === 'expense'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'expense' })}
-                  className="mr-2"
-                />
-                <span className="text-danger-600 font-medium">Despesa</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  value="income"
-                  checked={formData.type === 'income'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' })}
-                  className="mr-2"
-                />
-                <span className="text-success-600 font-medium">Receita</span>
-              </label>
-            </div>
-          </div>
-
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Descrição *
             </label>
             <input
               type="text"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="input"
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              className={`input w-full ${errors.description ? 'border-red-500' : ''}`}
               placeholder="Ex: Salário, Aluguel, Compras..."
-              required
             />
+            {errors.description && (
+              <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+            )}
           </div>
 
           {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Valor *
             </label>
             <input
               type="number"
               step="0.01"
-              min="0"
               value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="input"
+              onChange={(e) => setFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+              className={`input w-full ${errors.amount ? 'border-red-500' : ''}`}
               placeholder="0,00"
-              required
             />
+            {errors.amount && (
+              <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
+            )}
           </div>
+
+          {/* Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo *
+            </label>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={() => handleTypeChange('income')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium ${
+                  formData.type === 'income'
+                    ? 'bg-success-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Receita
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTypeChange('expense')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium ${
+                  formData.type === 'expense'
+                    ? 'bg-danger-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Despesa
+              </button>
+            </div>
+          </div>
+
+          {/* Expense Type (only for expenses) */}
+          {formData.type === 'expense' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Despesa
+              </label>
+              <select
+                value={formData.expenseType}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  expenseType: e.target.value as 'normal' | 'reserva' | 'devolucao'
+                }))}
+                className="input w-full"
+              >
+                {expenseTypes.map((expenseType) => (
+                  <option key={expenseType.id} value={expenseType.id}>
+                    {expenseType.name}
+                  </option>
+                ))}
+              </select>
+              {formData.expenseType && (
+                <div className="mt-1 flex items-center">
+                  <div
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: getExpenseTypeColor(formData.expenseType) }}
+                  />
+                  <span className="text-sm text-gray-600">
+                    {expenseTypes.find(et => et.id === formData.expenseType)?.description}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Categoria *
             </label>
             <select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="input"
-              required
+              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+              className={`input w-full ${errors.category ? 'border-red-500' : ''}`}
             >
               <option value="">Selecione uma categoria</option>
-              {filteredCategories.map((category) => (
+              {getFilteredCategories().map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
             </select>
+            {errors.category && (
+              <p className="text-red-500 text-sm mt-1">{errors.category}</p>
+            )}
           </div>
 
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Data da Transação *
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Data *
             </label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={handleDateChange}
-              className="input"
-              required
-            />
+            <div className="relative">
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="input w-full pr-10"
+                max={new Date().toISOString().split('T')[0]}
+              />
+              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Data da transação (não pode ser futura)
+            </p>
           </div>
 
           {/* Due Date */}
           <div>
-            <div className="flex items-center space-x-2 mb-2">
+            <div className="flex items-center mb-2">
               <input
                 type="checkbox"
                 id="hasDueDate"
                 checked={formData.hasDueDate}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  if (checked && !formData.dueDate) {
-                    // Sugerir data de vencimento quando marcar o checkbox
-                    const suggestedDate = new Date(formData.date + 'T00:00:00');
-                    suggestedDate.setDate(suggestedDate.getDate() + 30); // 30 dias depois
-                    setFormData({
-                      ...formData,
-                      hasDueDate: checked,
-                      dueDate: suggestedDate.toISOString().split('T')[0]
-                    });
-                  } else {
-                    setFormData({ ...formData, hasDueDate: checked });
-                  }
-                }}
-                className="rounded"
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  hasDueDate: e.target.checked,
+                  dueDate: e.target.checked ? formData.date : ''
+                }))}
+                className="mr-2"
               />
-              <label htmlFor="hasDueDate" className="text-sm font-medium text-gray-700 flex items-center">
-                <Calendar className="h-4 w-4 mr-1" />
-                Definir prazo de vencimento
+              <label htmlFor="hasDueDate" className="text-sm font-medium text-gray-700">
+                Tem data de vencimento
               </label>
             </div>
             
             {formData.hasDueDate && (
-              <div className="ml-6">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Data de Vencimento
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de Vencimento *
                 </label>
-                <input
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  className="input"
-                  min={formData.date}
-                  required={formData.hasDueDate}
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    className={`input w-full pr-10 ${errors.dueDate ? 'border-red-500' : ''}`}
+                    min={formData.date}
+                  />
+                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+                {errors.dueDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>
+                )}
                 <p className="text-xs text-gray-500 mt-1">
-                  Selecione uma data futura para o vencimento
+                  Selecione uma data igual ou posterior à data da transação
                 </p>
               </div>
             )}
           </div>
 
-          {/* Buttons */}
+          {/* Submit Buttons */}
           <div className="flex space-x-3 pt-4">
+            <button
+              type="submit"
+              className="btn btn-primary flex-1"
+            >
+              {transaction ? 'Atualizar' : 'Adicionar'}
+            </button>
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="btn btn-secondary flex-1"
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex-1 btn btn-primary"
-            >
-              {transaction ? 'Atualizar' : 'Adicionar'}
             </button>
           </div>
         </form>

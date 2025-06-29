@@ -3,6 +3,7 @@ export interface Transaction {
   description: string;
   amount: number;
   type: 'income' | 'expense';
+  expenseType?: 'normal' | 'reserva' | 'devolucao';
   category: string;
   date: string;
   dueDate?: string;
@@ -27,6 +28,14 @@ export interface Category {
   name: string;
   type: 'income' | 'expense';
   color: string;
+}
+
+export interface ExpenseType {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  isDefault: boolean;
 }
 
 export interface FinancialSummary {

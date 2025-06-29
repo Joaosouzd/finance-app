@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   TrendingUp, 
@@ -12,19 +11,19 @@ import {
 
 interface LayoutProps {
   children: ReactNode;
+  currentPage: string;
+  onNavigate: (page: string) => void;
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Transações', href: '/transactions', icon: TrendingUp },
-  { name: 'Prazos', href: '/deadlines', icon: Calendar },
-  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
-  { name: 'Configurações', href: '/settings', icon: Settings },
+  { name: 'Dashboard', id: 'dashboard', icon: Home },
+  { name: 'Transações', id: 'transactions', icon: TrendingUp },
+  { name: 'Prazos', id: 'deadlines', icon: Calendar },
+  { name: 'Relatórios', id: 'reports', icon: BarChart3 },
+  { name: 'Configurações', id: 'settings', icon: Settings },
 ];
 
-export const Layout = ({ children }: LayoutProps) => {
-  const location = useLocation();
-
+export const Layout = ({ children, currentPage, onNavigate }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
@@ -41,12 +40,13 @@ export const Layout = ({ children }: LayoutProps) => {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-4 py-6">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+              const isActive = currentPage === item.id;
+              
               return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`group flex w-full items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                     isActive
                       ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-500'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -54,7 +54,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 >
                   <item.icon className="mr-3 h-5 w-5" />
                   {item.name}
-                </Link>
+                </button>
               );
             })}
           </nav>

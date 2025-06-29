@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { Plus, Edit, Trash2, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { useFinance } from '../hooks/useFinance';
 import { Transaction, Category } from '../types';
 import { TransactionForm } from '../components/TransactionForm';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { formatCurrency, formatDate, getCategoryColor } from '../utils/helpers';
 
 interface TransactionsPageProps {
-  finance: any;
+  onNavigate: (page: string) => void;
 }
 
-export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
+export const TransactionsPage = ({ onNavigate }: TransactionsPageProps) => {
+  const finance = useFinance();
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
   const handleAddTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
     finance.addTransaction(transaction);
@@ -26,9 +31,16 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
     }
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta transação?')) {
-      finance.deleteTransaction(id);
+  const handleDeleteTransaction = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (transactionToDelete) {
+      finance.deleteTransaction(transactionToDelete.id);
+      setTransactionToDelete(null);
+      setShowConfirmModal(false);
     }
   };
 
@@ -70,6 +82,16 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
   const getCategoryName = (categoryId: string) => {
     const category = finance.categories.find((c: Category) => c.id === categoryId);
     return category?.name || 'Sem categoria';
+  };
+
+  const getExpenseTypeName = (expenseTypeId: string) => {
+    const expenseType = finance.expenseTypes.find((et: any) => et.id === expenseTypeId);
+    return expenseType?.name || 'Normal';
+  };
+
+  const getExpenseTypeColor = (expenseTypeId: string) => {
+    const expenseType = finance.expenseTypes.find((et: any) => et.id === expenseTypeId);
+    return expenseType?.color || '#6b7280';
   };
 
   const months = getUniqueMonths();
@@ -236,6 +258,7 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Data</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Descrição</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Categoria</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Tipo</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Vencimento</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-700">Valor</th>
                   <th className="text-center py-3 px-4 font-medium text-gray-700">Ações</th>
@@ -271,6 +294,21 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
+                      {transaction.type === 'income' ? (
+                        <span className="text-success-600 font-medium">Receita</span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                          style={{
+                            backgroundColor: `${getExpenseTypeColor(transaction.expenseType || 'normal')}20`,
+                            color: getExpenseTypeColor(transaction.expenseType || 'normal'),
+                          }}
+                        >
+                          {getExpenseTypeName(transaction.expenseType || 'normal')}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
                       {transaction.dueDate ? (
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           new Date(transaction.dueDate + 'T00:00:00') < new Date() 
@@ -298,12 +336,14 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
                         <button
                           onClick={() => setEditingTransaction(transaction)}
                           className="text-gray-400 hover:text-gray-600"
+                          title="Editar transação"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteTransaction(transaction.id)}
+                          onClick={() => handleDeleteTransaction(transaction)}
                           className="text-gray-400 hover:text-danger-600"
+                          title="Excluir transação"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -321,6 +361,7 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
       {showForm && (
         <TransactionForm
           categories={finance.categories}
+          expenseTypes={finance.expenseTypes}
           onSubmit={handleAddTransaction}
           onCancel={() => setShowForm(false)}
         />
@@ -330,10 +371,26 @@ export const TransactionsPage = ({ finance }: TransactionsPageProps) => {
         <TransactionForm
           transaction={editingTransaction}
           categories={finance.categories}
+          expenseTypes={finance.expenseTypes}
           onSubmit={handleEditTransaction}
           onCancel={() => setEditingTransaction(null)}
         />
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setTransactionToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Confirmar Exclusão"
+        message={`Tem certeza que deseja excluir a transação "${transactionToDelete?.description}"? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        type="danger"
+      />
     </div>
   );
 }; 

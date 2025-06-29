@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Transaction, Deadline, Category, FinancialSummary } from '../types';
+import { Transaction, Deadline, Category, FinancialSummary, ExpenseType } from '../types';
 import { storage } from '../utils/storage';
 import { calculateFinancialSummary, generateId } from '../utils/helpers';
 
@@ -7,6 +7,7 @@ export const useFinance = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [summary, setSummary] = useState<FinancialSummary>({
     totalIncome: 0,
     totalExpenses: 0,
@@ -15,6 +16,10 @@ export const useFinance = () => {
     overdueDeadlines: 0,
   });
 
+  // Filtros
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+
   // Load data from localStorage on mount
   useEffect(() => {
     const loadData = () => {
@@ -22,10 +27,12 @@ export const useFinance = () => {
         const storedTransactions = storage.getTransactions();
         const storedDeadlines = storage.getDeadlines();
         const storedCategories = storage.getCategories();
+        const storedExpenseTypes = storage.getExpenseTypes();
 
         setTransactions(storedTransactions);
         setDeadlines(storedDeadlines);
         setCategories(storedCategories);
+        setExpenseTypes(storedExpenseTypes);
       } catch (error) {
         console.error('Error loading data from localStorage:', error);
       }
@@ -212,27 +219,181 @@ export const useFinance = () => {
     }
   }, []);
 
-  return {
-    // State
-    transactions,
-    deadlines: getDeadlinesFromTransactions(), // Return calculated deadlines
-    categories,
-    summary,
-    monthlyData: getMonthlyData(),
+  // Expense Type methods
+  const addExpenseType = useCallback((expenseType: Omit<ExpenseType, 'id'>) => {
+    try {
+      const newExpenseType: ExpenseType = {
+        ...expenseType,
+        id: generateId(),
+      };
+
+      storage.addExpenseType(newExpenseType);
+      setExpenseTypes(prev => [...prev, newExpenseType]);
+    } catch (error) {
+      console.error('Error adding expense type:', error);
+    }
+  }, []);
+
+  const updateExpenseType = useCallback((id: string, updates: Partial<ExpenseType>) => {
+    try {
+      storage.updateExpenseType(id, updates);
+      setExpenseTypes(prev => 
+        prev.map(et => et.id === id ? { ...et, ...updates } : et)
+      );
+    } catch (error) {
+      console.error('Error updating expense type:', error);
+    }
+  }, []);
+
+  const deleteExpenseType = useCallback((id: string) => {
+    try {
+      console.log('useFinance: Excluindo tipo de despesa:', id);
+      storage.deleteExpenseType(id);
+      setExpenseTypes(prev => {
+        const filtered = prev.filter(et => et.id !== id);
+        console.log('useFinance: Tipos após exclusão:', filtered);
+        return filtered;
+      });
+    } catch (error) {
+      console.error('Error deleting expense type:', error);
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('Erro ao excluir tipo de despesa.');
+      }
+    }
+  }, []);
+
+  // Obter anos disponíveis
+  const getAvailableYears = useCallback(() => {
+    const years = new Set<number>();
+    transactions.forEach(transaction => {
+      const year = new Date(transaction.date).getFullYear();
+      years.add(year);
+    });
+    return Array.from(years).sort((a, b) => b - a); // Ordem decrescente
+  }, [transactions]);
+
+  // Obter meses disponíveis para o ano selecionado
+  const getAvailableMonths = useCallback(() => {
+    const months = new Set<number>();
+    transactions.forEach(transaction => {
+      const transactionDate = new Date(transaction.date);
+      if (transactionDate.getFullYear() === selectedYear) {
+        months.add(transactionDate.getMonth());
+      }
+    });
+    return Array.from(months).sort((a, b) => a - b); // Ordem crescente
+  }, [transactions, selectedYear]);
+
+  // Transações filtradas por ano e mês
+  const filteredTransactions = useCallback(() => {
+    return transactions.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      return transactionDate.getFullYear() === selectedYear && 
+             transactionDate.getMonth() === selectedMonth;
+    });
+  }, [transactions, selectedYear, selectedMonth]);
+
+  // Deadlines filtradas por ano e mês
+  const filteredDeadlines = useCallback(() => {
+    return deadlines.filter(deadline => {
+      const deadlineDate = new Date(deadline.dueDate);
+      return deadlineDate.getFullYear() === selectedYear && 
+             deadlineDate.getMonth() === selectedMonth;
+    });
+  }, [deadlines, selectedYear, selectedMonth]);
+
+  // Cálculos para o período selecionado
+  const periodStats = useCallback(() => {
+    const filtered = filteredTransactions();
+    const income = filtered
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = filtered
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
     
-    // Transaction methods
+    return {
+      income,
+      expenses,
+      balance: income - expenses,
+      transactionCount: filtered.length
+    };
+  }, [filteredTransactions]);
+
+  // Estatísticas por categoria para o período
+  const categoryStats = useCallback(() => {
+    const filtered = filteredTransactions();
+    const stats: { [key: string]: number } = {};
+    
+    filtered.forEach(transaction => {
+      if (transaction.type === 'expense') {
+        const categoryName = categories.find(c => c.id === transaction.category)?.name || 'Sem categoria';
+        stats[categoryName] = (stats[categoryName] || 0) + transaction.amount;
+      }
+    });
+    
+    return Object.entries(stats)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredTransactions, categories]);
+
+  // Estatísticas por tipo de despesa para o período
+  const expenseTypeStats = useCallback(() => {
+    const filtered = filteredTransactions();
+    const stats: { [key: string]: number } = {};
+    
+    filtered.forEach(transaction => {
+      if (transaction.type === 'expense' && transaction.expenseType) {
+        const typeName = expenseTypes.find(et => et.id === transaction.expenseType)?.name || 'Sem tipo';
+        stats[typeName] = (stats[typeName] || 0) + transaction.amount;
+      }
+    });
+    
+    return Object.entries(stats)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredTransactions, expenseTypes]);
+
+  return {
+    transactions,
+    deadlines,
+    categories,
+    expenseTypes,
+    summary,
     addTransaction,
     updateTransaction,
     deleteTransaction,
-    
-    // Deadline methods
     addDeadline,
     updateDeadline,
     deleteDeadline,
-    
-    // Category methods
     addCategory,
     updateCategory,
     deleteCategory,
+    addExpenseType,
+    updateExpenseType,
+    deleteExpenseType,
+
+    // Filtros
+    selectedYear,
+    setSelectedYear,
+    selectedMonth,
+    setSelectedMonth,
+
+    // Funções de filtro
+    getAvailableYears,
+    getAvailableMonths,
+    filteredTransactions,
+    filteredDeadlines,
+
+    // Cálculos para o período selecionado
+    periodStats,
+
+    // Estatísticas por categoria para o período
+    categoryStats,
+
+    // Estatísticas por tipo de despesa para o período
+    expenseTypeStats,
   };
 }; 

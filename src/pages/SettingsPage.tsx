@@ -1,49 +1,52 @@
+import * as React from 'react';
 import { useState } from 'react';
-import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
-import { Category } from '../types';
+import { Plus, Edit, Trash2, Palette, Tag, CreditCard, Calendar, BarChart3 } from 'lucide-react';
+import { Category, ExpenseType } from '../types';
+import { generateId } from '../utils/helpers';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { useFinance } from '../hooks/useFinance';
 
 interface SettingsPageProps {
-  finance: any;
+  onNavigate: (page: string) => void;
 }
 
-export const SettingsPage = ({ finance }: SettingsPageProps) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
+  const finance = useFinance();
   const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [showExpenseTypeForm, setShowExpenseTypeForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingExpenseType, setEditingExpenseType] = useState<ExpenseType | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'category' | 'expenseType', item: Category | ExpenseType } | null>(null);
+
+  // Category form state
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     type: 'expense' as 'income' | 'expense',
-    color: '#3b82f6',
+    color: '#3b82f6'
   });
 
+  // Expense type form state
+  const [expenseTypeForm, setExpenseTypeForm] = useState({
+    name: '',
+    description: '',
+    color: '#3b82f6'
+  });
+
+  // Category handlers
   const handleAddCategory = () => {
-    if (!categoryForm.name.trim()) {
-      alert('Por favor, insira um nome para a categoria.');
-      return;
-    }
-
-    finance.addCategory(categoryForm);
-    setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
-    setShowCategoryForm(false);
-  };
-
-  const handleEditCategory = () => {
-    if (!editingCategory || !categoryForm.name.trim()) {
-      alert('Por favor, insira um nome para a categoria.');
-      return;
-    }
-
-    finance.updateCategory(editingCategory.id, categoryForm);
-    setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
-    setEditingCategory(null);
-  };
-
-  const handleDeleteCategory = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta categoria?')) {
-      finance.deleteCategory(id);
+    if (categoryForm.name.trim()) {
+      finance.addCategory({
+        name: categoryForm.name.trim(),
+        type: categoryForm.type,
+        color: categoryForm.color,
+      });
+      setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+      setShowCategoryForm(false);
     }
   };
 
-  const handleEditClick = (category: Category) => {
+  const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
     setCategoryForm({
       name: category.name,
@@ -52,34 +55,125 @@ export const SettingsPage = ({ finance }: SettingsPageProps) => {
     });
   };
 
-  const handleCancel = () => {
-    setShowCategoryForm(false);
-    setEditingCategory(null);
-    setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+  const handleDeleteCategory = (category: Category) => {
+    setItemToDelete({ type: 'category', item: category });
+    setShowConfirmModal(true);
+  };
+
+  // Expense type handlers
+  const handleAddExpenseType = () => {
+    if (expenseTypeForm.name.trim()) {
+      finance.addExpenseType({
+        name: expenseTypeForm.name.trim(),
+        description: expenseTypeForm.description.trim(),
+        color: expenseTypeForm.color,
+        isDefault: false,
+      });
+      setExpenseTypeForm({ name: '', description: '', color: '#3b82f6' });
+      setShowExpenseTypeForm(false);
+    }
+  };
+
+  const handleEditExpenseType = (expenseType: ExpenseType) => {
+    setEditingExpenseType(expenseType);
+    setExpenseTypeForm({
+      name: expenseType.name,
+      description: expenseType.description,
+      color: expenseType.color,
+    });
+  };
+
+  const handleDeleteExpenseType = (expenseType: ExpenseType) => {
+    setItemToDelete({ type: 'expenseType', item: expenseType });
+    setShowConfirmModal(true);
+  };
+
+  const handleSaveCategoryEdit = () => {
+    if (editingCategory && categoryForm.name.trim()) {
+      finance.updateCategory(editingCategory.id, {
+        name: categoryForm.name.trim(),
+        type: categoryForm.type,
+        color: categoryForm.color,
+      });
+      setEditingCategory(null);
+      setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+    }
+  };
+
+  const handleSaveExpenseTypeEdit = () => {
+    if (editingExpenseType && expenseTypeForm.name.trim()) {
+      finance.updateExpenseType(editingExpenseType.id, {
+        name: expenseTypeForm.name.trim(),
+        description: expenseTypeForm.description.trim(),
+        color: expenseTypeForm.color,
+      });
+      setEditingExpenseType(null);
+      setExpenseTypeForm({ name: '', description: '', color: '#3b82f6' });
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      if (itemToDelete.type === 'category') {
+        finance.deleteCategory(itemToDelete.item.id);
+      } else {
+        finance.deleteExpenseType(itemToDelete.item.id);
+      }
+      setItemToDelete(null);
+      setShowConfirmModal(false);
+    }
+  };
+
+  const openCategoryForm = (category?: Category) => {
+    if (category) {
+      handleEditCategory(category);
+    } else {
+      setEditingCategory(null);
+      setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+    }
+    setShowCategoryForm(true);
+  };
+
+  const openExpenseTypeForm = (expenseType?: ExpenseType) => {
+    if (expenseType) {
+      handleEditExpenseType(expenseType);
+    } else {
+      setEditingExpenseType(null);
+      setExpenseTypeForm({ name: '', description: '', color: '#3b82f6' });
+    }
+    setShowExpenseTypeForm(true);
   };
 
   const incomeCategories = finance.categories.filter((c: Category) => c.type === 'income');
   const expenseCategories = finance.categories.filter((c: Category) => c.type === 'expense');
 
-  const colorOptions = [
-    '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899',
-    '#10b981', '#6366f1', '#f97316', '#84cc16', '#06b6d4', '#6b7280'
-  ];
+  const isDefaultCategory = (category: Category) => {
+    return ['Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Educação', 'Lazer', 'Outros'].includes(category.name);
+  };
+
+  const isDefaultExpenseType = (expenseType: ExpenseType) => {
+    return ['Normal', 'Reserva', 'Reembolso'].includes(expenseType.name);
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-gray-600">Gerencie as configurações do aplicativo</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
+          <p className="text-gray-600">Gerencie categorias e tipos de despesa</p>
+        </div>
       </div>
 
       {/* Categories Section */}
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Categorias</h2>
+      <div className="card">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Tag className="h-5 w-5 mr-2" />
+            Categorias
+          </h2>
           <button
-            onClick={() => setShowCategoryForm(true)}
+            onClick={() => openCategoryForm()}
             className="btn btn-primary flex items-center"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -88,179 +182,220 @@ export const SettingsPage = ({ finance }: SettingsPageProps) => {
         </div>
 
         {/* Income Categories */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Receitas</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {incomeCategories.map((category: Category) => (
-              <div
-                key={category.id}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
-              >
-                <div className="flex items-center">
-                  <div
-                    className="w-4 h-4 rounded-full mr-3"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span className="font-medium text-gray-900">{category.name}</span>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEditClick(category)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCategory(category.id)}
-                    className="text-gray-400 hover:text-danger-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+        <div className="space-y-3">
+          {incomeCategories.map((category: Category) => (
+            <div
+              key={category.id}
+              className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+            >
+              <div className="flex items-center">
+                <div
+                  className="w-4 h-4 rounded-full mr-3"
+                  style={{ backgroundColor: category.color }}
+                />
+                <span className="font-medium text-gray-900">{category.name}</span>
+                {isDefaultCategory(category) && (
+                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                    Padrão
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
+              <div className="flex space-x-2">
+                {editingCategory?.id === category.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={categoryForm.name}
+                      onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="input max-w-xs"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSaveCategoryEdit()}
+                    />
+                    <button
+                      onClick={handleSaveCategoryEdit}
+                      className="btn btn-success btn-sm"
+                    >
+                      Salvar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+                      }}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleEditCategory(category)}
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Editar categoria"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    {!isDefaultCategory(category) && (
+                      <button
+                        onClick={() => handleDeleteCategory(category)}
+                        className="text-gray-400 hover:text-danger-600"
+                        title="Excluir categoria"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Expense Categories */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Despesas</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {expenseCategories.map((category: Category) => (
-              <div
-                key={category.id}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
-              >
-                <div className="flex items-center">
-                  <div
-                    className="w-4 h-4 rounded-full mr-3"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span className="font-medium text-gray-900">{category.name}</span>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEditClick(category)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCategory(category.id)}
-                    className="text-gray-400 hover:text-danger-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+        <div className="space-y-3">
+          {expenseCategories.map((category: Category) => (
+            <div
+              key={category.id}
+              className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+            >
+              <div className="flex items-center">
+                <div
+                  className="w-4 h-4 rounded-full mr-3"
+                  style={{ backgroundColor: category.color }}
+                />
+                <span className="font-medium text-gray-900">{category.name}</span>
               </div>
-            ))}
-          </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => openCategoryForm(category)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(category)}
+                  className="text-gray-400 hover:text-danger-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Category Form Modal */}
-      {(showCategoryForm || editingCategory) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
-              </h2>
-              <button
-                onClick={handleCancel}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome *
-                </label>
-                <input
-                  type="text"
-                  value={categoryForm.name}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                  className="input"
-                  placeholder="Nome da categoria"
-                  required
-                />
-              </div>
-
-              {/* Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo
-                </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="expense"
-                      checked={categoryForm.type === 'expense'}
-                      onChange={(e) => setCategoryForm({ ...categoryForm, type: e.target.value as 'expense' })}
-                      className="mr-2"
-                    />
-                    <span className="text-danger-600 font-medium">Despesa</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="income"
-                      checked={categoryForm.type === 'income'}
-                      onChange={(e) => setCategoryForm({ ...categoryForm, type: e.target.value as 'income' })}
-                      className="mr-2"
-                    />
-                    <span className="text-success-600 font-medium">Receita</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Color */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cor
-                </label>
-                <div className="grid grid-cols-6 gap-2">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setCategoryForm({ ...categoryForm, color })}
-                      className={`w-8 h-8 rounded-full border-2 ${
-                        categoryForm.color === color ? 'border-gray-900' : 'border-gray-300'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={editingCategory ? handleEditCategory : handleAddCategory}
-                  className="flex-1 btn btn-primary flex items-center justify-center"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {editingCategory ? 'Atualizar' : 'Adicionar'}
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Expense Types Section */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <CreditCard className="h-5 w-5 mr-2" />
+            Tipos de Despesa
+          </h2>
+          <button
+            onClick={() => openExpenseTypeForm()}
+            className="btn btn-primary flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Tipo
+          </button>
         </div>
-      )}
+
+        {/* Expense Types List */}
+        <div className="space-y-3">
+          {finance.expenseTypes.map((expenseType: ExpenseType) => (
+            <div
+              key={expenseType.id}
+              className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+            >
+              <div className="flex items-center">
+                <div
+                  className="w-4 h-4 rounded-full mr-3"
+                  style={{ backgroundColor: expenseType.color }}
+                />
+                <div>
+                  <span className="font-medium text-gray-900">{expenseType.name}</span>
+                  <p className="text-sm text-gray-600">{expenseType.description}</p>
+                  {isDefaultExpenseType(expenseType) && (
+                    <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                      Padrão
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                {editingExpenseType?.id === expenseType.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={expenseTypeForm.name}
+                      onChange={(e) => setExpenseTypeForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="input max-w-xs"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSaveExpenseTypeEdit()}
+                    />
+                    <input
+                      type="color"
+                      value={expenseTypeForm.color}
+                      onChange={(e) => setExpenseTypeForm(prev => ({ ...prev, color: e.target.value }))}
+                      className="w-10 h-8 border border-gray-300 rounded cursor-pointer"
+                    />
+                    <button
+                      onClick={handleSaveExpenseTypeEdit}
+                      className="btn btn-success btn-sm"
+                    >
+                      Salvar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingExpenseType(null);
+                        setExpenseTypeForm({ name: '', description: '', color: '#3b82f6' });
+                      }}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleEditExpenseType(expenseType)}
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Editar tipo de despesa"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    {!isDefaultExpenseType(expenseType) && (
+                      <button
+                        onClick={() => handleDeleteExpenseType(expenseType)}
+                        className="text-gray-400 hover:text-danger-600"
+                        title="Excluir tipo de despesa"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Confirmar Exclusão"
+        message={`Tem certeza que deseja excluir ${
+          itemToDelete?.type === 'category' ? 'a categoria' : 'o tipo de despesa'
+        } "${itemToDelete?.item.name}"? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        type="danger"
+      />
     </div>
   );
 }; 
