@@ -376,6 +376,189 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         cancelText="Cancelar"
         type="danger"
       />
+
+      {/* Category Form Modal */}
+      {showCategoryForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowCategoryForm(false);
+                  setEditingCategory(null);
+                  setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Plus className="h-6 w-6 rotate-45" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome *
+                </label>
+                <input
+                  type="text"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="input w-full"
+                  placeholder="Nome da categoria"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo *
+                </label>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setCategoryForm(prev => ({ ...prev, type: 'income' }))}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium ${
+                      categoryForm.type === 'income'
+                        ? 'bg-success-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Receita
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryForm(prev => ({ ...prev, type: 'expense' }))}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium ${
+                      categoryForm.type === 'expense'
+                        ? 'bg-danger-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Despesa
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cor
+                </label>
+                <input
+                  type="color"
+                  value={categoryForm.color}
+                  onChange={(e) => setCategoryForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-full h-10 border border-gray-300 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={editingCategory ? handleSaveCategoryEdit : handleAddCategory}
+                  className="btn btn-primary flex-1"
+                  disabled={!categoryForm.name.trim()}
+                >
+                  {editingCategory ? 'Atualizar' : 'Adicionar'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCategoryForm(false);
+                    setEditingCategory(null);
+                    setCategoryForm({ name: '', type: 'expense', color: '#3b82f6' });
+                  }}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expense Type Form Modal */}
+      {showExpenseTypeForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {editingExpenseType ? 'Editar Tipo de Despesa' : 'Novo Tipo de Despesa'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowExpenseTypeForm(false);
+                  setEditingExpenseType(null);
+                  setExpenseTypeForm({ name: '', description: '', color: '#3b82f6' });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Plus className="h-6 w-6 rotate-45" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome *
+                </label>
+                <input
+                  type="text"
+                  value={expenseTypeForm.name}
+                  onChange={(e) => setExpenseTypeForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="input w-full"
+                  placeholder="Nome do tipo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descrição
+                </label>
+                <textarea
+                  value={expenseTypeForm.description}
+                  onChange={(e) => setExpenseTypeForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="input w-full"
+                  rows={3}
+                  placeholder="Descrição do tipo de despesa"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cor
+                </label>
+                <input
+                  type="color"
+                  value={expenseTypeForm.color}
+                  onChange={(e) => setExpenseTypeForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-full h-10 border border-gray-300 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={editingExpenseType ? handleSaveExpenseTypeEdit : handleAddExpenseType}
+                  className="btn btn-primary flex-1"
+                  disabled={!expenseTypeForm.name.trim()}
+                >
+                  {editingExpenseType ? 'Atualizar' : 'Adicionar'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExpenseTypeForm(false);
+                    setEditingExpenseType(null);
+                    setExpenseTypeForm({ name: '', description: '', color: '#3b82f6' });
+                  }}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

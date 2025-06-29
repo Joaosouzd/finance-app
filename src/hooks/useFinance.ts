@@ -34,18 +34,7 @@ export const useFinance = () => {
         setCategories(storedCategories);
         setExpenseTypes(storedExpenseTypes);
         
-        // Definir ano inicial baseado nas transações existentes
-        if (storedTransactions.length > 0) {
-          const years = new Set<number>();
-          storedTransactions.forEach(transaction => {
-            const year = new Date(transaction.date).getFullYear();
-            years.add(year);
-          });
-          const sortedYears = Array.from(years).sort((a, b) => b - a);
-          if (sortedYears.length > 0) {
-            setSelectedYear(sortedYears[0]); // Ano mais recente
-          }
-        }
+        // Não definir ano inicial automaticamente - deixar filtros vazios para mostrar todos os dados
       } catch (error) {
         console.error('Error loading data from localStorage:', error);
       }
@@ -81,25 +70,6 @@ export const useFinance = () => {
       console.error('Error calculating financial summary:', error);
     }
   }, [transactions, getDeadlinesFromTransactions]);
-
-  // Update selected year when new transactions are added
-  useEffect(() => {
-    if (transactions.length > 0) {
-      const years = new Set<number>();
-      transactions.forEach(transaction => {
-        const year = new Date(transaction.date).getFullYear();
-        years.add(year);
-      });
-      const sortedYears = Array.from(years).sort((a, b) => b - a);
-      
-      // Se não há ano selecionado ou se o ano selecionado não existe mais, selecionar o mais recente
-      if (!selectedYear || !years.has(selectedYear)) {
-        if (sortedYears.length > 0) {
-          setSelectedYear(sortedYears[0]);
-        }
-      }
-    }
-  }, [transactions, selectedYear]);
 
   // Calculate monthly data for charts
   const getMonthlyData = useCallback(() => {
@@ -330,9 +300,20 @@ export const useFinance = () => {
   const filteredTransactions = useCallback(() => {
     return transactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
-      const yearMatch = selectedYear ? transactionDate.getFullYear() === selectedYear : true;
-      const monthMatch = selectedMonth !== null ? transactionDate.getMonth() === selectedMonth : true;
-      return yearMatch && monthMatch;
+      const transactionYear = transactionDate.getFullYear();
+      const transactionMonth = transactionDate.getMonth();
+      
+      // Se ano está selecionado, verificar se corresponde
+      if (selectedYear && transactionYear !== selectedYear) {
+        return false;
+      }
+      
+      // Se mês está selecionado, verificar se corresponde
+      if (selectedMonth !== null && transactionMonth !== selectedMonth) {
+        return false;
+      }
+      
+      return true;
     });
   }, [transactions, selectedYear, selectedMonth]);
 
@@ -340,9 +321,20 @@ export const useFinance = () => {
   const filteredDeadlines = useCallback(() => {
     return deadlines.filter(deadline => {
       const deadlineDate = new Date(deadline.dueDate);
-      const yearMatch = selectedYear ? deadlineDate.getFullYear() === selectedYear : true;
-      const monthMatch = selectedMonth !== null ? deadlineDate.getMonth() === selectedMonth : true;
-      return yearMatch && monthMatch;
+      const deadlineYear = deadlineDate.getFullYear();
+      const deadlineMonth = deadlineDate.getMonth();
+      
+      // Se ano está selecionado, verificar se corresponde
+      if (selectedYear && deadlineYear !== selectedYear) {
+        return false;
+      }
+      
+      // Se mês está selecionado, verificar se corresponde
+      if (selectedMonth !== null && deadlineMonth !== selectedMonth) {
+        return false;
+      }
+      
+      return true;
     });
   }, [deadlines, selectedYear, selectedMonth]);
 

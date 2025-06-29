@@ -118,7 +118,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               onChange={(e) => handleYearChange(Number(e.target.value))}
               className="input max-w-xs"
             >
-              <option value="">Selecione um ano</option>
+              <option value="">Todos os anos</option>
               {availableYears.map((year) => (
                 <option key={year} value={year}>
                   {year}
@@ -177,6 +177,23 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               </p>
             </div>
             <Calendar className="h-8 w-8 text-blue-500" />
+          </div>
+        </div>
+      )}
+
+      {/* All Data Info - Show when no filters are applied */}
+      {!finance.selectedYear && finance.selectedMonth === null && (
+        <div className="card bg-green-50 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-green-900">
+                Visualizando: Todos os dados
+              </h3>
+              <p className="text-sm text-green-700">
+                Dados de todas as transações sem filtros aplicados
+              </p>
+            </div>
+            <Calendar className="h-8 w-8 text-green-500" />
           </div>
         </div>
       )}
