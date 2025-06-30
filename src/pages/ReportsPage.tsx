@@ -198,6 +198,58 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
         </div>
       </div>
 
+      {/* Detailed Reports */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Maior transação</span>
+            <span className="text-lg font-bold text-gray-900">{formatCurrency(Math.max(...finance.filteredTransactions().map(t => t.amount), 0))}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Menor transação</span>
+            <span className="text-lg font-bold text-gray-900">{formatCurrency(Math.min(...finance.filteredTransactions().map(t => t.amount), 0))}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Média de receitas</span>
+            <span className="text-lg font-bold text-gray-900">{formatCurrency((() => { const arr = finance.filteredTransactions().filter(t => t.type === 'income'); return arr.length ? arr.reduce((a, b) => a + b.amount, 0) / arr.length : 0; })())}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Média de despesas</span>
+            <span className="text-lg font-bold text-gray-900">{formatCurrency((() => { const arr = finance.filteredTransactions().filter(t => t.type === 'expense'); return arr.length ? arr.reduce((a, b) => a + b.amount, 0) / arr.length : 0; })())}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Categoria mais usada</span>
+            <span className="text-lg font-bold text-gray-900">{(() => { const map = new Map(); finance.filteredTransactions().forEach(t => { map.set(t.category, (map.get(t.category) || 0) + 1); }); const max = [...map.entries()].sort((a, b) => b[1] - a[1])[0]; return max ? finance.categories.find(c => c.id === max[0])?.name : 'N/A'; })()}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Transações com vencimento</span>
+            <span className="text-lg font-bold text-gray-900">{finance.filteredTransactions().filter(t => t.dueDate).length}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Transações vencidas</span>
+            <span className="text-lg font-bold text-red-600">{finance.filteredTransactions().filter(t => t.dueDate && new Date(t.dueDate) < new Date()).length}</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600">Média de transações/dia</span>
+            <span className="text-lg font-bold text-gray-900">{(() => { const arr = finance.filteredTransactions(); if (!arr.length) return '0'; const first = new Date(arr[0].date); const days = Math.ceil((new Date().getTime() - first.getTime()) / (1000 * 60 * 60 * 24)); return days > 0 ? (arr.length / days).toFixed(2) : '0'; })()}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">
@@ -242,25 +294,6 @@ export const ReportsPage = ({ onNavigate }: ReportsPageProps) => {
               Nenhuma despesa encontrada para este período
             </p>
           )}
-        </div>
-      </div>
-
-      {/* Financial Chart */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Evolução Financeira
-        </h3>
-        <div className="h-64">
-          <FinancialChart 
-            data={[
-              {
-                month: finance.selectedYear ? finance.selectedYear.toString() : 'Período',
-                income: stats.income,
-                expenses: stats.expenses,
-                balance: stats.balance
-              }
-            ]}
-          />
         </div>
       </div>
     </div>
