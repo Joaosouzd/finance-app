@@ -66,9 +66,6 @@ npm run dev
 4. **Acesse o aplicativo**
 Abra [http://localhost:3000](http://localhost:3000) no seu navegador.
 
-## Licença
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
 ## Suporte
 Se você encontrar algum problema ou tiver sugestões, por favor abra uma issue no repositório.
 Desenvolvido com ❤️ para ajudar no controle financeiro pessoal. 
